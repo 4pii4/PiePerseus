@@ -4,9 +4,13 @@ import multiprocessing
 import os
 import shutil
 import time
-from subprocess import Popen, PIPE, STDOUT
+import zipfile
+from subprocess import Popen, PIPE, STDOUT, run
+import logging
 
-from loguru import logger as logging
+logging.basicConfig(format='%(asctime)s,%(msecs)03d %(levelname)-8s [%(filename)s:%(funcName)s:%(lineno)d] - %(message)s',
+                    datefmt='%Y-%m-%d:%H:%M:%S',
+                    level=logging.DEBUG)
 
 pkg = 'com.YoStarEN.AzurLane'
 pkg_version = '0'
@@ -14,6 +18,7 @@ rootdir = os.getcwd()
 
 skip = False
 clean = False
+quick_rebuild = False
 
 
 def is_windows() -> bool:
@@ -61,10 +66,24 @@ def build_perseus_lib(do_clean=False):
 
     # thx n0k0m3
     os.chdir('PerseusLib')
-    os.system(f'ndk-build{".cmd" if is_windows() else ""} NDK_PROJECT_PATH=./src ' +
-              'NDK_APPLICATION_MK=./src/Application.mk ' +
-              'APP_BUILD_SCRIPT=./src/Android.mk ' +
-              f'APP_PLATFORM=android-21 -j{multiprocessing.cpu_count()} {"clean" if do_clean else ""}')
+
+    cmd =[f'ndk-build{".cmd" if is_windows() else ""}',
+          'NDK_PROJECT_PATH=./src',
+          'NDK_APPLICATION_MK=./src/Application.mk',
+          'APP_BUILD_SCRIPT=./src/Android.mk',
+          'APP_PLATFORM=android-21',
+          f'-j{multiprocessing.cpu_count()}'] + (['clean'] if do_clean else [])
+
+    ndk_proc = run(cmd, capture_output=True, text=True)
+
+    output = ndk_proc.stdout
+    return_code = ndk_proc.returncode
+
+    if return_code != 0:
+        logging.error('ndk-build failed')
+        logging.error(output)
+        exit(1)
+
     os.chdir('..')
 
 
@@ -99,7 +118,7 @@ def decompile_apk():
 
 def copy_perseus_libs():
     logging.info('copying Perseus libs')
-    bbox(f'sh -c "cp -rv ../PerseusLib/src/libs/* {pkg}/lib"')
+    bbox(f'sh -c "cp -r ../PerseusLib/src/libs/* {pkg}/lib"')
 
 
 def patch():
@@ -108,9 +127,26 @@ def patch():
 
 
 def rebuild():
-    logging.info(f'rebuilding {pkg}.apk')
-    os.system(
-        f'java -jar {os.path.join(rootdir, "bin", "apktool.jar")} -q -f b {pkg} -o {pkg}-{pkg_version}.patched.apk')
+    newpkg = f'{pkg}-{pkg_version}.patched.apk'
+    tmppkg = newpkg + '.working.zip'
+    if quick_rebuild and os.path.isfile(newpkg):
+        logging.info(f'rebuiling {pkg}.apk quickly')
+
+        shutil.move(newpkg, tmppkg)
+        with zipfile.ZipFile(tmppkg) as old:
+            with zipfile.ZipFile(newpkg, 'w') as new:
+                for zi in old.infolist():
+                    if zi.filename.endswith('libPerseus.so'):
+                        new.write(f'{pkg}/{zi.filename}', zi.filename)
+                    else:
+                        new.writestr(zi, old.read(zi.filename))
+
+        os.remove(tmppkg)
+
+        return
+
+    logging.info(f'rebuilding {pkg}.apk with apktool')
+    os.system(f'java -jar {os.path.join(rootdir, "bin", "apktool.jar")} -q -f b {pkg} -o {newpkg}')
 
 
 def sign_apk():
@@ -132,18 +168,23 @@ def sign_apk():
 
 
 def main():
-    global skip, clean
+    global skip, clean, quick_rebuild
+
     parser = argparse.ArgumentParser(
         prog='perseus apk builder',
-        description='builds apk for you (default behaviour if called with no arguments)')
+        description='builds apk for you (this is the default behaviour if called with no arguments)')
 
     parser.add_argument('--skip', help='skip decompile and extracting if possible', default=False)
-    parser.add_argument('--clean', help='delete built apk, decompiled sources and xapk',
+    parser.add_argument('--clean', help='delete built apk, decompiled sources, compiled perseus libs and xapk',
+                        default=False)
+    parser.add_argument('--quick-rebuild',
+                        help='rebuild apk by replacing libs in the apk instead of using apktool (saves 40s)',
                         default=False)
     args = parser.parse_args()
 
     skip = args.skip
     clean = args.clean
+    quick_rebuild = args.quick_rebuild
 
     if clean:
         logging.info('cleaning')
@@ -167,7 +208,8 @@ def main():
         sign_apk()
         end = time.time()
 
-        logging.info(f'built apk in {os.path.join(rootdir, 'apk_build', f'{pkg}-{pkg_version}.patched.apk')}')
+        logging.info(
+            f'built apk in {os.path.join(rootdir, 'apk_build', f'{pkg}-{pkg_version}.patched.apk')}')
         logging.info(f'done in {round(end - start, 2)} seconds')
 
 
