@@ -1,11 +1,15 @@
 //
 // Created by shirome on 19/04/2022.
+// Added json support by pie on 25/5/2024.
 //
 
 #ifndef ANDROID_HOOKING_PATCHING_TEMPLATE_MAIN_STRUCTS_H
 #define ANDROID_HOOKING_PATCHING_TEMPLATE_MAIN_STRUCTS_H
 
 #include "lua/lstate.h"
+#include "Includes/json.hpp"
+
+using ordered_json = nlohmann::ordered_json;
 
 typedef struct Il2CppDomain
 {
@@ -81,128 +85,124 @@ Il2CppString* (*il2cpp_string_new)(char* str);
 struct Config {
     struct AAircraft {
         bool Enabled = false;
-        std::string Accuracy = "false";
-        std::string AccuracyGrowth = "false";
-        std::string AttackPower = "false";
-        std::string AttackPowerGrowth = "false";
-        std::string CrashDamage = "false";
-        std::string Hp = "false";
-        std::string HpGrowth = "false";
-        std::string Speed = "false";
+        int Accuracy = -1;
+        int AccuracyGrowth = -1;
+        int AttackPower = -1;
+        int AttackPowerGrowth = -1;
+        int CrashDamage = -1;
+        int Hp = -1;
+        int HpGrowth = -1;
+        int Speed = -1;
     };
 
     struct EEnemies {
         bool Enabled = false;
-        std::string AntiAir = "false";
-        std::string AntiAirGrowth = "false";
-        std::string AntiSubmarine = "false";
-        std::string Armor = "false";
-        std::string ArmorGrowth = "false";
-        std::string Cannon = "false";
-        std::string CannonGrowth = "false";
-        std::string Evasion = "false";
-        std::string EvasionGrowth = "false";
-        std::string Hit = "false";
-        std::string HitGrowth = "false";
-        std::string Hp = "false";
-        std::string HpGrowth = "false";
-        std::string Luck = "false";
-        std::string LuckGrowth = "false";
-        std::string Reload = "false";
-        std::string ReloadGrowth = "false";
+        int AntiAir = -1;
+        int AntiAirGrowth = -1;
+        int AntiSubmarine = -1;
+        int Armor = -1;
+        int ArmorGrowth = -1;
+        int Cannon = -1;
+        int CannonGrowth = -1;
+        int Evasion = -1;
+        int EvasionGrowth = -1;
+        int Hit = -1;
+        int HitGrowth = -1;
+        int Hp = -1;
+        int HpGrowth = -1;
+        int Luck = -1;
+        int LuckGrowth = -1;
+        int Reload = -1;
+        int ReloadGrowth = -1;
         bool RemoveBuffs = false;
         bool RemoveEquipment = false;
         bool RemoveSkill = false;
-        std::string Speed = "false";
-        std::string SpeedGrowth = "false";
-        std::string Torpedo = "false";
-        std::string TorpedoGrowth = "false";
+        int Speed = -1;
+        int SpeedGrowth = -1;
+        int Torpedo = -1;
+        int TorpedoGrowth = -1;
     };
 
     struct MMisc {
         bool Enabled = false;
         bool ExerciseGodmode = false;
         bool FastStageMovement = false;
-    };
-
-    struct SSkins {
-        bool Enabled = false;
+        bool Skins = false;
     };
 
     struct WWeapons {
         bool Enabled = false;
-        std::string Damage = "false";
-        std::string ReloadMax = "false";
+        int Damage = -1;
+        int ReloadMax = -1;
     };
 
     AAircraft Aircraft;
     EEnemies Enemies;
-    SSkins Skins;
     MMisc Misc;
     WWeapons Weapons;
     bool Valid = true;
 };
 
-std::vector<std::string> _default{
-        OBFUSCATE("# [*] Delete the file to reset it. Restart the game to apply any changes."),
-        OBFUSCATE("# [*] Options can be one of the following types:"),
-        OBFUSCATE("#      [1] Bool - e.g. \"true\" or \"false\" - Keys: All \"Enabled\"s, ExerciseGodmode, FastStageMovement, RemoveBuffs, RemoveEquipment and RemoveSkill."),
-        OBFUSCATE("#      [2] Whole numbers or false to disable changes - If you need an example you're five - Keys: All the ones not mentioned above."),
-        OBFUSCATE("# [*] \"Enabled\"s apply to the entirety of their section, if they're disabled everything will be."),
-        OBFUSCATE("# [*] If the game crashes, this file is most likely misconfigured."),
-        OBFUSCATE(""),
-        OBFUSCATE("original repo: github.com/Egoistically/Perseus."),
-        OBFUSCATE(""),
-        OBFUSCATE("[Aircraft]"),
-        OBFUSCATE("Enabled=false"),
-        OBFUSCATE("Accuracy=false"),
-        OBFUSCATE("AccuracyGrowth=false"),
-        OBFUSCATE("AttackPower=false"),
-        OBFUSCATE("AttackPowerGrowth=false"),
-        OBFUSCATE("CrashDamage=false"),
-        OBFUSCATE("Hp=false"),
-        OBFUSCATE("HpGrowth=false"),
-        OBFUSCATE("Speed=false"),
-        OBFUSCATE(""),
-        OBFUSCATE("[Enemies]"),
-        OBFUSCATE("Enabled=false"),
-        OBFUSCATE("AntiAir=false"),
-        OBFUSCATE("AntiAirGrowth=false"),
-        OBFUSCATE("AntiSubmarine=false"),
-        OBFUSCATE("Armor=false"),
-        OBFUSCATE("ArmorGrowth=false"),
-        OBFUSCATE("Cannon=false"),
-        OBFUSCATE("CannonGrowth=false"),
-        OBFUSCATE("Evasion=false"),
-        OBFUSCATE("EvasionGrowth=false"),
-        OBFUSCATE("Hit=false"),
-        OBFUSCATE("HitGrowth=false"),
-        OBFUSCATE("Hp=false"),
-        OBFUSCATE("HpGrowth=false"),
-        OBFUSCATE("Luck=false"),
-        OBFUSCATE("LuckGrowth=false"),
-        OBFUSCATE("Reload=false"),
-        OBFUSCATE("ReloadGrowth=false"),
-        OBFUSCATE("RemoveBuffs=false"),
-        OBFUSCATE("RemoveEquipment=false"),
-        OBFUSCATE("RemoveSkill=false"),
-        OBFUSCATE("Speed=false"),
-        OBFUSCATE("SpeedGrowth=false"),
-        OBFUSCATE("Torpedo=false"),
-        OBFUSCATE("TorpedoGrowth=false"),
-        OBFUSCATE(""),
-        OBFUSCATE("[Misc]"),
-        OBFUSCATE("Enabled=false"),
-        OBFUSCATE("ExerciseGodmode=false"),
-        OBFUSCATE("FastStageMovement=false"),
-        OBFUSCATE(""),
-        OBFUSCATE("[Skins]"),
-        OBFUSCATE("Enabled=false"),
-        OBFUSCATE(""),
-        OBFUSCATE("[Weapons]"),
-        OBFUSCATE("Enabled=false"),
-        OBFUSCATE("Damage=false"),
-        OBFUSCATE("ReloadMax=false")
-};
+auto _default_raw = OBFUSCATE( R"r({
+    "OriginalRepo": "github.com/Egoistically/Perseus",
+    "PieRepo": "github.com/4pii4/PiePerseus",
+
+    "Aircraft": {
+        "Enabled": false,
+        "Accuracy": -1,
+        "AccuracyGrowth": -1,
+        "AttackPower": -1,
+        "AttackPowerGrowth": -1,
+        "CrashDamage": -1,
+        "Hp": -1,
+        "HpGrowth": -1,
+        "Speed": -1
+    },
+
+    "Enemies": {
+        "Enabled": false,
+        "AntiAir": -1,
+        "AntiAirGrowth": -1,
+        "AntiSubmarine": -1,
+        "Armor": -1,
+        "ArmorGrowth": -1,
+        "Cannon": -1,
+        "CannonGrowth": -1,
+        "Evasion": -1,
+        "EvasionGrowth": -1,
+        "Hit": -1,
+        "HitGrowth": -1,
+        "Hp": -1,
+        "HpGrowth": -1,
+        "Luck": -1,
+        "LuckGrowth": -1,
+        "Reload": -1,
+        "ReloadGrowth": -1,
+        "RemoveBuffs": false,
+        "RemoveEquipment": false,
+        "RemoveSkill": false,
+        "Speed": -1,
+        "SpeedGrowth": -1,
+        "Torpedo": -1,
+        "TorpedoGrowth": -1
+    },
+
+    "Weapons": {
+        "Enabled": false,
+        "Damage": -1,
+        "ReloadMax": -1
+    },
+
+    "Misc": {
+        "Enabled": false,
+        "ExerciseGodmode": false,
+        "FastStageMovement": false,
+        "Skins": false
+    }
+}
+)r");
+
+auto _default = ordered_json::parse(static_cast<std::string>(_default_raw));
+
 
 #endif //ANDROID_HOOKING_PATCHING_TEMPLATE_MAIN_STRUCTS_H

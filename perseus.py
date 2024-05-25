@@ -7,6 +7,7 @@ import time
 import zipfile
 from subprocess import Popen, PIPE, STDOUT, run
 import logging
+import sys
 
 logging.basicConfig(format='%(asctime)s,%(msecs)03d %(levelname)-8s [%(filename)s:%(funcName)s:%(lineno)d] - %(message)s',
                     datefmt='%Y-%m-%d:%H:%M:%S',
@@ -81,7 +82,11 @@ def build_perseus_lib(do_clean=False):
 
     if return_code != 0:
         logging.error('ndk-build failed')
-        logging.error(output)
+
+        print("======== ndk-build stdout ========", file=sys.stderr)
+        print(output, file=sys.stderr)
+        print("======== ndk-build stderr ========", file=sys.stderr)
+        print(ndk_proc.stderr, file=sys.stderr)
         exit(1)
 
     os.chdir('..')

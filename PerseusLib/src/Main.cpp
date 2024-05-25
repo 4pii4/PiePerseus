@@ -17,9 +17,14 @@
 
 //Target lib here
 #define targetLibName OBFUSCATE("libil2cpp.so")
+#define tostr(x) (static_cast<std::string>(x))
 
 #include "Includes/Macros.h"
+#include "Includes/json.hpp"
 #include "Structs.h"
+
+using ordered_json = nlohmann::ordered_json;
+using json = nlohmann::json;
 
 bool exec = false;
 std::string configPath;
@@ -49,9 +54,7 @@ bool writeConfigFile() {
     std::ofstream configFile(configPath);
 
     if (configFile.is_open()) {
-        for (const std::string &line: _default) {
-            configFile << line << "\n";
-        }
+        configFile << _default.dump(2) << "\n";
         configFile.close();
         return true;
     }
@@ -102,8 +105,16 @@ bool isEnabled(const std::string &param) {
     return param != "false";
 }
 
+bool isEnabled(const int param) {
+    return param != -1;
+}
+
 int getValue(const std::string &param) {
     return std::stoi(param);
+}
+
+int getValue(const int param) {
+    return param;
 }
 
 void checkHeader(const std::string &line, const std::string &header) {
@@ -801,8 +812,8 @@ void lua_tolstring(lua_State *instance, int index, int &strLen) {
 
         if (config.Aircraft.Enabled) { modAircraft(nL); }
         if (config.Enemies.Enabled) { modEnemies(nL); }
-        if (config.Skins.Enabled) { modSkins(nL); }
         if (config.Misc.Enabled) { modMisc(nL); }
+        if (config.Misc.Enabled && config.Misc.Skins) { modSkins(nL); }
         if (config.Weapons.Enabled) { modWeapons(nL); }
     }
     return old_lua_tolstring(instance, index, strLen);
@@ -837,14 +848,32 @@ void getConfigPath(JNIEnv *env, jobject context) {
     const char *path = env->GetStringUTFChars(obj_Path, nullptr);
 
     std::string route(path);
-    configPath = route + "/Perseus.ini";
+    configPath = route + "/Perseus.json";
     skinPath = route + "/Skins.ini";
 
     env->ReleaseStringUTFChars(obj_Path, path);
 }
 
-void init(JNIEnv *env, jclass clazz, jobject context) {
+bool get_default(nlohmann::basic_json<nlohmann::ordered_map> obj, std::string name, bool _default){
+    auto iter = obj.find(name);
+    if (iter == obj.end())
+        return _default;
+    if (!obj[name].is_boolean())
+        return _default;
+    return obj[name].get<bool>();
+}
 
+int get_default(nlohmann::basic_json<nlohmann::ordered_map> obj, std::string name, int _default){
+    auto iter = obj.find(name);
+    if (iter == obj.end())
+        return _default;
+    if (!obj[name].is_number_integer())
+        return _default;
+    return obj[name].get<int>();
+}
+
+
+void init(JNIEnv *env, jclass clazz, jobject context) {
     // get external path where config shall be located
     getConfigPath(env, context);
 
@@ -854,103 +883,75 @@ void init(JNIEnv *env, jclass clazz, jobject context) {
         }
     }
 
-    std::vector<std::string> fileLines;
-
-    std::string line;
     std::ifstream configFile(configPath);
+    ordered_json configJson = nullptr;
+
     if (configFile.is_open()) {
-        while (getline(configFile, line)) {
-            // if line contains "#" or its length is less than 3 don't load it
-            if (line.find('#') != std::string::npos || line.length() < 3) {
-                continue;
-            }
-            fileLines.push_back(line);
-        }
-        configFile.close();
+        configJson = ordered_json::parse(configFile);
     } else {
         crash();
     }
 
-    std::string wm = OBFUSCATE("original repo: github.com/Egoistically/Perseus.");
-    if (fileLines[0] != wm)
+    if (configJson == nullptr)
         crash();
-    fileLines.erase(fileLines.begin());
 
-    if (fileLines.size() != 46) {
-        config.Valid = false;
-        writeConfigFile();
-    }
+    int i = 0;
 
-    // Aircraft
-    checkHeader(fileLines[0], OBFUSCATE("[Aircraft]"));
-    config.Aircraft.Enabled = getKeyEnabled(fileLines[1], OBFUSCATE("Enabled"));
-    if (config.Aircraft.Enabled) {
-        config.Aircraft.Accuracy = getKeyValue(fileLines[2], OBFUSCATE("Accuracy"));
-        config.Aircraft.AccuracyGrowth = getKeyValue(fileLines[3],
-                                                     OBFUSCATE("AccuracyGrowth"));
-        config.Aircraft.AttackPower = getKeyValue(fileLines[4], OBFUSCATE("AttackPower"));
-        config.Aircraft.AttackPowerGrowth = getKeyValue(fileLines[5],
-                                                        OBFUSCATE("AttackPowerGrowth"));
-        config.Aircraft.CrashDamage = getKeyValue(fileLines[6], OBFUSCATE("CrashDamage"));
-        config.Aircraft.Hp = getKeyValue(fileLines[7], OBFUSCATE("Hp"));
-        config.Aircraft.HpGrowth = getKeyValue(fileLines[8], OBFUSCATE("HpGrowth"));
-        config.Aircraft.Speed = getKeyValue(fileLines[9], OBFUSCATE("Speed"));
-    }
+    for (auto& [key, value] : configJson.items()) {
+        if (i == 0 && !(key == tostr(OBFUSCATE("OriginalRepo")) && value == tostr(OBFUSCATE("github.com/Egoistically/Perseus"))))
+            configJson = nullptr;
+        if (i == 1 && !(key == tostr(OBFUSCATE("PieRepo")) && value == tostr(OBFUSCATE("github.com/4pii4/PiePerseus"))))
+            configJson = nullptr;
 
-    // Enemies
-    checkHeader(fileLines[10], OBFUSCATE("[Enemies]"));
-    config.Enemies.Enabled = getKeyEnabled(fileLines[11], OBFUSCATE("Enabled"));
-    if (config.Enemies.Enabled) {
-        config.Enemies.AntiAir = getKeyValue(fileLines[12], OBFUSCATE("AntiAir"));
-        config.Enemies.AntiAirGrowth = getKeyValue(fileLines[13], OBFUSCATE("AntiAirGrowth"));
-        config.Enemies.AntiSubmarine = getKeyValue(fileLines[14], OBFUSCATE("AntiSubmarine"));
-        config.Enemies.Armor = getKeyValue(fileLines[15], OBFUSCATE("Armor"));
-        config.Enemies.ArmorGrowth = getKeyValue(fileLines[16], OBFUSCATE("ArmorGrowth"));
-        config.Enemies.Cannon = getKeyValue(fileLines[17], OBFUSCATE("Cannon"));
-        config.Enemies.CannonGrowth = getKeyValue(fileLines[18], OBFUSCATE("CannonGrowth"));
-        config.Enemies.Evasion = getKeyValue(fileLines[19], OBFUSCATE("Evasion"));
-        config.Enemies.EvasionGrowth = getKeyValue(fileLines[20], OBFUSCATE("EvasionGrowth"));
-        config.Enemies.Hit = getKeyValue(fileLines[21], OBFUSCATE("Hit"));
-        config.Enemies.HitGrowth = getKeyValue(fileLines[22], OBFUSCATE("HitGrowth"));
-        config.Enemies.Hp = getKeyValue(fileLines[23], OBFUSCATE("Hp"));
-        config.Enemies.HpGrowth = getKeyValue(fileLines[24], OBFUSCATE("HpGrowth"));
-        config.Enemies.Luck = getKeyValue(fileLines[25], OBFUSCATE("Luck"));
-        config.Enemies.LuckGrowth = getKeyValue(fileLines[26], OBFUSCATE("LuckGrowth"));
-        config.Enemies.Reload = getKeyValue(fileLines[27], OBFUSCATE("Reload"));
-        config.Enemies.ReloadGrowth = getKeyValue(fileLines[28], OBFUSCATE("ReloadGrowth"));
-        config.Enemies.RemoveBuffs = getKeyEnabled(fileLines[29], OBFUSCATE("RemoveBuffs"));
-        config.Enemies.RemoveEquipment = getKeyEnabled(fileLines[30],
-                                                       OBFUSCATE("RemoveEquipment"));
-        config.Enemies.RemoveSkill = getKeyEnabled(fileLines[31], OBFUSCATE("RemoveSkill"));
-        config.Enemies.Speed = getKeyValue(fileLines[32], OBFUSCATE("Speed"));
-        config.Enemies.SpeedGrowth = getKeyValue(fileLines[33], OBFUSCATE("SpeedGrowth"));
-        config.Enemies.Torpedo = getKeyValue(fileLines[34], OBFUSCATE("Torpedo"));
-        config.Enemies.TorpedoGrowth = getKeyValue(fileLines[35], OBFUSCATE("TorpedoGrowth"));
-    }
-
-    checkHeader(fileLines[36], OBFUSCATE("[Misc]"));
-    config.Misc.Enabled = getKeyEnabled(fileLines[37], OBFUSCATE("Enabled"));
-    if (config.Misc.Enabled) {
-        config.Misc.ExerciseGodmode = getKeyEnabled(fileLines[38],
-                                                    OBFUSCATE("ExerciseGodmode"));
-        config.Misc.FastStageMovement = getKeyEnabled(fileLines[39],
-                                                      OBFUSCATE("FastStageMovement"));
-    }
-
-    // Skins
-    checkHeader(fileLines[40], OBFUSCATE("[Skins]"));
-    config.Skins.Enabled = getKeyEnabled(fileLines[41], OBFUSCATE("Enabled"));
-
-    // Weapons
-    checkHeader(fileLines[42], OBFUSCATE("[Weapons]"));
-    config.Weapons.Enabled = getKeyEnabled(fileLines[43], OBFUSCATE("Enabled"));
-    if (config.Weapons.Enabled) {
-        config.Weapons.Damage = getKeyValue(fileLines[44], OBFUSCATE("Damage"));
-        config.Weapons.ReloadMax = getKeyValue(fileLines[45], OBFUSCATE("ReloadMax"));
-    }
-
-    if (!config.Valid) {
-        crash();
+        if (i > 1) {
+            if (key == tostr(OBFUSCATE("Aircraft"))) {
+                config.Aircraft.Enabled = get_default(value, OBFUSCATE("Enabled"), false);
+                config.Aircraft.Accuracy = get_default(value, OBFUSCATE("Accuracy"), -1);
+                config.Aircraft.AccuracyGrowth = get_default(value, OBFUSCATE("AccuracyGrowth"), -1);
+                config.Aircraft.AttackPower = get_default(value, OBFUSCATE("AttackPower"), -1);
+                config.Aircraft.AttackPowerGrowth = get_default(value, OBFUSCATE("AttackPowerGrowth"), -1);
+                config.Aircraft.CrashDamage = get_default(value, OBFUSCATE("CrashDamage"), -1);
+                config.Aircraft.Hp = get_default(value, OBFUSCATE("Hp"), -1);
+                config.Aircraft.HpGrowth = get_default(value, OBFUSCATE("HpGrowth"), -1);
+                config.Aircraft.Speed = get_default(value, OBFUSCATE("Speed"), -1);
+            } else if (key == tostr(OBFUSCATE("Enemies"))) {
+                config.Enemies.Enabled = get_default(value, OBFUSCATE("Enabled"), false);
+                config.Enemies.AntiAir = get_default(value, OBFUSCATE("AntiAir"), -1);
+                config.Enemies.AntiAirGrowth = get_default(value, OBFUSCATE("AntiAirGrowth"), -1);
+                config.Enemies.AntiSubmarine = get_default(value, OBFUSCATE("AntiSubmarine"), -1);
+                config.Enemies.Armor = get_default(value, OBFUSCATE("Armor"), -1);
+                config.Enemies.ArmorGrowth = get_default(value, OBFUSCATE("ArmorGrowth"), -1);
+                config.Enemies.Cannon = get_default(value, OBFUSCATE("Cannon"), -1);
+                config.Enemies.CannonGrowth = get_default(value, OBFUSCATE("CannonGrowth"), -1);
+                config.Enemies.Evasion = get_default(value, OBFUSCATE("Evasion"), -1);
+                config.Enemies.EvasionGrowth = get_default(value, OBFUSCATE("EvasionGrowth"), -1);
+                config.Enemies.Hit = get_default(value, OBFUSCATE("Hit"), -1);
+                config.Enemies.HitGrowth = get_default(value, OBFUSCATE("HitGrowth"), -1);
+                config.Enemies.Hp = get_default(value, OBFUSCATE("Hp"), -1);
+                config.Enemies.HpGrowth = get_default(value, OBFUSCATE("HpGrowth"), -1);
+                config.Enemies.Luck = get_default(value, OBFUSCATE("Luck"), -1);
+                config.Enemies.LuckGrowth = get_default(value, OBFUSCATE("LuckGrowth"), -1);
+                config.Enemies.Reload = get_default(value, OBFUSCATE("Reload"), -1);
+                config.Enemies.ReloadGrowth = get_default(value, OBFUSCATE("ReloadGrowth"), -1);
+                config.Enemies.RemoveBuffs = get_default(value, OBFUSCATE("RemoveBuffs"), false);
+                config.Enemies.RemoveEquipment = get_default(value, OBFUSCATE("RemoveEquipment"), false);
+                config.Enemies.RemoveSkill = get_default(value, OBFUSCATE("RemoveSkill"), false);
+                config.Enemies.Speed = get_default(value, OBFUSCATE("Speed"), -1);
+                config.Enemies.SpeedGrowth = get_default(value, OBFUSCATE("SpeedGrowth"), -1);
+                config.Enemies.Torpedo = get_default(value, OBFUSCATE("Torpedo"), -1);
+                config.Enemies.TorpedoGrowth = get_default(value, OBFUSCATE("TorpedoGrowth"), -1);
+            } else if (key == tostr(OBFUSCATE("Weapons"))) {
+                config.Weapons.Enabled = get_default(value, OBFUSCATE("Enabled"), false);
+                config.Weapons.Damage = get_default(value, OBFUSCATE("Damage"), -1);
+                config.Weapons.ReloadMax = get_default(value, OBFUSCATE("ReloadMax"), -1);
+            } else if (key == tostr(OBFUSCATE("Misc"))) {
+                config.Misc.Enabled = get_default(value, OBFUSCATE("Enabled"), false);
+                config.Misc.ExerciseGodmode = get_default(value, OBFUSCATE("ExerciseGodmode"), false);
+                config.Misc.FastStageMovement = get_default(value, OBFUSCATE("FastStageMovement"), false);
+                config.Misc.Skins = get_default(value, OBFUSCATE("Skins"), false);
+            }
+        }
+        i++;
     }
 
     Toast(env, context, OBFUSCATE("Enjoy the feet, by @Egoistically and @pi.kt"), ToastLength::LENGTH_LONG);
