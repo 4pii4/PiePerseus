@@ -9,9 +9,10 @@ from subprocess import Popen, PIPE, STDOUT, run
 import logging
 import sys
 
-logging.basicConfig(format='%(asctime)s,%(msecs)03d %(levelname)-8s [%(filename)s:%(funcName)s:%(lineno)d] - %(message)s',
-                    datefmt='%Y-%m-%d:%H:%M:%S',
-                    level=logging.DEBUG)
+logging.basicConfig(
+    format='%(asctime)s,%(msecs)03d %(levelname)-8s [%(filename)s:%(funcName)s:%(lineno)d] - %(message)s',
+    datefmt='%Y-%m-%d:%H:%M:%S',
+    level=logging.DEBUG)
 
 pkg = 'com.YoStarEN.AzurLane'
 pkg_version = '0'
@@ -62,18 +63,26 @@ def get_version():
     pkg_version = v
 
 
+def download_azurlane():
+    if skip and os.path.isfile(f'{pkg}.xapk'):
+        logging.info(f'{pkg}.xapk already exists, skipping')
+        return
+    logging.info(f'downloading {pkg}.xapk')
+    os.system(f'{executable_path("apkeep")} -a {pkg} .')
+
+
 def build_perseus_lib(do_clean=False):
     logging.info('building perseus libs')
 
     # thx n0k0m3
     os.chdir('PerseusLib')
 
-    cmd =[f'ndk-build{".cmd" if is_windows() else ""}',
-          'NDK_PROJECT_PATH=./src',
-          'NDK_APPLICATION_MK=./src/Application.mk',
-          'APP_BUILD_SCRIPT=./src/Android.mk',
-          'APP_PLATFORM=android-21',
-          f'-j{multiprocessing.cpu_count()}'] + (['clean'] if do_clean else [])
+    cmd = [f'ndk-build{".cmd" if is_windows() else ""}',
+           'NDK_PROJECT_PATH=./src',
+           'NDK_APPLICATION_MK=./src/Application.mk',
+           'APP_BUILD_SCRIPT=./src/Android.mk',
+           'APP_PLATFORM=android-21',
+           f'-j{multiprocessing.cpu_count()}'] + (['clean'] if do_clean else [])
 
     ndk_proc = run(cmd, capture_output=True, text=True)
 
@@ -92,22 +101,13 @@ def build_perseus_lib(do_clean=False):
     os.chdir('..')
 
 
-def download_azurlane():
-    if skip and os.path.isfile(f'{pkg}.xapk'):
-        logging.info(f'{pkg}.xapk already exists, skipping')
-        return
-    logging.info(f'downloading {pkg}.xapk')
-    os.system(f'{executable_path("apkeep")} -a {pkg} .')
-    logging.info(f'downloaded {pkg}.xapk')
-
-
 def extract_xapk():
     if skip and os.path.isfile(f'{pkg}.apk'):
         logging.info(f'{pkg}.apk is already extracted, skipping')
         return
 
     logging.info(f'extracting {pkg}.xapk')
-    bbox(f'unzip -o ../{pkg}.xapk -d . {pkg}.apk')
+    bbox(f'unzip -q -o ../{pkg}.xapk -d . {pkg}.apk')
 
 
 def decompile_apk():
@@ -180,7 +180,8 @@ def main():
         description='builds apk for you (this is the default behaviour if called with no arguments)')
 
     parser.add_argument('--skip', help='skip decompile and extracting if possible', default=False)
-    parser.add_argument('--clean', help='delete built apk, decompiled sources, compiled perseus libs and xapk',
+    parser.add_argument('--clean',
+                        help='delete built apk, decompiled sources, compiled perseus libs and xapk',
                         default=False)
     parser.add_argument('--quick-rebuild',
                         help='rebuild apk by replacing libs in the apk instead of using apktool (saves 40s)',
@@ -202,8 +203,8 @@ def main():
     else:
         start = time.time()
         get_version()
-        build_perseus_lib()
         download_azurlane()
+        build_perseus_lib()
         mkcd('apk_build')
         extract_xapk()
         decompile_apk()

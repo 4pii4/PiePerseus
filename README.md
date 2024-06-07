@@ -32,74 +32,23 @@ Recommended usage:
 $ python perseus.py --skip=True --quick-rebuild=True
 ```
 
-The first build takes 3 to 5 minutes, subsequent builds take about 30-40 seconds
+The first build takes 3 to 5 minutes, subsequent builds take about 20-30 seconds.
 
+If the built APK doesn't work for you and you're on Windows, try running the script inside Git Bash/MSYS.
 
 ## Features and goals:
-- [x] Config file in JSON (instead of archaic INI)
+- [x] Config file in `json` (instead of archaic `.ini`)
+- [x] Chat commands, **disabled by default**
 - [ ] Skip animations for even faster battle
-- [ ] Chat commands (like minecraft clients)
+  - [x] Skip battleship firing animation
+- [ ] Commander name/id/oil/coin/gem spoof
 
-## Configuration
-```json
-{
-    "OriginalRepo": "github.com/Egoistically/Perseus",
-    "PieRepo": "github.com/4pii4/PiePerseus",
+## Documentation
 
-    "Aircraft": {
-        "Enabled": false,
-        "Accuracy": -1,
-        "AccuracyGrowth": -1,
-        "AttackPower": -1,
-        "AttackPowerGrowth": -1,
-        "CrashDamage": -1,
-        "Hp": -1,
-        "HpGrowth": -1,
-        "Speed": -1
-    },
+* [Chat commands](docs/chat_commands.md)
+* [Configuration](docs/configuration.md)
 
-    "Enemies": {
-        "Enabled": false,
-        "AntiAir": -1,
-        "AntiAirGrowth": -1,
-        "AntiSubmarine": -1,
-        "Armor": -1,
-        "ArmorGrowth": -1,
-        "Cannon": -1,
-        "CannonGrowth": -1,
-        "Evasion": -1,
-        "EvasionGrowth": -1,
-        "Hit": -1,
-        "HitGrowth": -1,
-        "Hp": -1,
-        "HpGrowth": -1,
-        "Luck": -1,
-        "LuckGrowth": -1,
-        "Reload": -1,
-        "ReloadGrowth": -1,
-        "RemoveBuffs": false,
-        "RemoveEquipment": false,
-        "RemoveSkill": false,
-        "Speed": -1,
-        "SpeedGrowth": -1,
-        "Torpedo": -1,
-        "TorpedoGrowth": -1
-    },
-
-    "Weapons": {
-        "Enabled": false,
-        "Damage": -1,
-        "ReloadMax": -1
-    },
-
-    "Misc": {
-        "Enabled": false,
-        "ExerciseGodmode": false,
-        "FastStageMovement": false,
-        "Skins": false
-    }
-}
-```
 To quote the original creator of Perseus:
-![image](https://gist.github.com/assets/138131197/650ac6f0-59da-4f79-b6e5-c839009a6c3d)
+
+![image](https://image.pieland.xyz/file/672d4d4be9f333cb70c49.png)
 

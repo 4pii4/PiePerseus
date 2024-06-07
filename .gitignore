@@ -8,3 +8,4 @@ Perseus
 apk_build
 /PerseusLib/src/libs
 /PerseusLib/src/obj
+*.iml

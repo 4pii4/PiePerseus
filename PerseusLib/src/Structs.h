@@ -128,6 +128,8 @@ struct Config {
         bool ExerciseGodmode = false;
         bool FastStageMovement = false;
         bool Skins = false;
+        bool ChatCommands = false;
+        bool RemoveBBAnimation = false;
     };
 
     struct WWeapons {
@@ -197,7 +199,9 @@ auto _default_raw = OBFUSCATE( R"r({
         "Enabled": false,
         "ExerciseGodmode": false,
         "FastStageMovement": false,
-        "Skins": false
+        "Skins": false,
+        "ChatCommands":  false,
+        "RemoveBBAnimation": false
     }
 }
 )r");

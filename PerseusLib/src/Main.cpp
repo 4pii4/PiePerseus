@@ -10,6 +10,7 @@
 #include <fstream>
 #include <iostream>
 #include <dlfcn.h>
+#include <android/log.h>
 #include "Includes/Logger.h"
 #include "Includes/obfuscate.h"
 #include "Includes/Utils.h"
@@ -33,9 +34,20 @@ std::map<int, int> skins;
 Config config;
 Il2CppImage *image;
 
+
+const char *lua_tolstring(lua_State *instance, int index, int &strLen);
+
 void crash() {
-    int *p = 0;
-    *p = 0;
+    abort(); // std posix
+    *((char*)-1) = 'x'; // redis
+    int *p = (int *)-1; *p = 1; // random
+}
+
+void percyLog(const char *fmt, ...) {
+    va_list arg;
+    va_start(arg, fmt);
+    __android_log_vprint(ANDROID_LOG_VERBOSE, tostr(OBFUSCATE("Perseus")).c_str(), fmt, arg);
+    va_end(arg);
 }
 
 std::vector<std::string> split(const std::string &s, char delim) {
@@ -440,6 +452,85 @@ void modSkins(lua_State *L) {
     }
 }
 
+void handleCommand(std::string cmd) {
+    percyLog(tostr(OBFUSCATE("command: %s")).c_str(), cmd.c_str());
+
+    if (cmd == tostr(OBFUSCATE("kill")) || cmd == tostr(OBFUSCATE("crash"))) {
+        crash();
+    } 
+}
+
+int hookSendMsgExecute(lua_State *L) {
+    lua_getfield(L, 2, STR("getBody"));
+    lua_pushvalue(L, 2);
+    lua_pcall(L, 1, 1, 0);
+
+    int siz = 0;
+    std::string msg(lua_tolstring(L, -1, siz));
+    percyLog(tostr(OBFUSCATE("chatmsg: %s")).c_str(), msg.c_str());
+
+    std::string prefix(".");
+    if (!msg.compare(0, prefix.size(), prefix)) {
+        std::string cmd = msg.substr(1);
+        handleCommand(cmd);
+    } else {
+        // todo: maybe call the old function
+    }
+    return 0;
+}
+
+
+void luaHookFunc(lua_State *L, std::string field, lua_CFunction func, std::string backup_prefix) {
+
+    // place name of function to be hooked, in the form x.y.z, in a stringstream
+    // "most vexing parse": c++ gfy
+    std::istringstream luaName(field);
+    
+    // make counter variables
+    std::string luaObj;
+    int luaObjCount = 1;
+    
+    // get first field, which should be a global
+    std::getline(luaName, luaObj, '.');
+    lua_getglobal(L, il2cpp_string_new(luaObj.data()));
+    
+    // get fields of global with following portions of name
+    while (std::getline(luaName, luaObj, '.')) {
+        lua_getfield(L, -1, il2cpp_string_new(luaObj.data()));
+        luaObjCount++;
+        if (!luaName.peek()) break;
+    }
+    
+    // rename old function
+    lua_setfield(L, -2, il2cpp_string_new((char *)(backup_prefix + luaObj.data()).c_str()));
+    
+    // replace old function with new function
+    lua_pushcfunction(L, func);
+    lua_setfield(L, -2, il2cpp_string_new(luaObj.data()));
+    
+    // clean stack: pop all pushed fields
+    lua_pop(L, luaObjCount - 1);
+    
+}
+
+int hookBMWABSetActive(lua_State *L) {
+    // get old SetActive function and call it with the same arguments, but with
+    // arg2 set to false instead, such that battleship bullet time is not activated
+    lua_getglobal(L, STR("ys"));
+    lua_getfield(L, -1, STR("Battle"));
+    lua_remove(L, -2);
+    lua_getfield(L, -1, STR("BattleManualWeaponAutoBot"));
+    lua_remove(L, -2);
+    lua_getfield(L, -1, STR("ktgw_old_SetActive"));
+    lua_remove(L, -2);
+    lua_pushvalue(L, 1);
+    lua_pushvalue(L, 2);
+    lua_pushboolean(L, 0);
+    lua_pcall(L, 3, 0, 0);
+    
+    return 0;
+}
+
 void modMisc(lua_State *L) {
     if (config.Misc.ExerciseGodmode) {
         lua_getfield(L, -1, STR("ConvertedBuff"));
@@ -458,6 +549,25 @@ void modMisc(lua_State *L) {
         replaceAttributeN(L, STR("ShipStepDuration"), 0);
         replaceAttributeN(L, STR("ShipStepQuickPlayScale"), 0);
         lua_pop(L, 1);
+    }
+    
+    if (config.Misc.Skins) {
+        modSkins(L);
+    }
+    
+    if (config.Misc.ChatCommands) {
+        lua_getfield(L, -1, STR("gametip"));
+        lua_getfield(L, -1, STR("notice_input_desc"));
+        lua_pushstring(L, STR("chat/.command"));
+        lua_setfield(L, -2, STR("tip"));
+        lua_pop(L, 2);
+        
+        luaHookFunc(L, OBFUSCATE("SendMsgCommand.execute"), hookSendMsgExecute, OBFUSCATE("old_"));
+        luaHookFunc(L, OBFUSCATE("GuildSendMsgCommand.execute"), nilFunc, "old_");
+    }
+    
+    if (config.Misc.RemoveBBAnimation) {
+        luaHookFunc(L, OBFUSCATE("ys.Battle.BattleManualWeaponAutoBot.SetActive"), hookBMWABSetActive, OBFUSCATE("ktgw_old_"));
     }
 }
 
@@ -786,9 +896,10 @@ int hookBUAddBuff(lua_State *L) {
     return 0;
 }
 
-void (*old_lua_tolstring)(lua_State *instance, int index, int &strLen);
 
-void lua_tolstring(lua_State *instance, int index, int &strLen) {
+const char *(*old_lua_tolstring)(lua_State *instance, int index, int &strLen);
+
+const char *lua_tolstring(lua_State *instance, int index, int &strLen) {
     if (instance && !exec) {
         exec = true;
 
@@ -813,7 +924,6 @@ void lua_tolstring(lua_State *instance, int index, int &strLen) {
         if (config.Aircraft.Enabled) { modAircraft(nL); }
         if (config.Enemies.Enabled) { modEnemies(nL); }
         if (config.Misc.Enabled) { modMisc(nL); }
-        if (config.Misc.Enabled && config.Misc.Skins) { modSkins(nL); }
         if (config.Weapons.Enabled) { modWeapons(nL); }
     }
     return old_lua_tolstring(instance, index, strLen);
@@ -949,6 +1059,8 @@ void init(JNIEnv *env, jclass clazz, jobject context) {
                 config.Misc.ExerciseGodmode = get_default(value, OBFUSCATE("ExerciseGodmode"), false);
                 config.Misc.FastStageMovement = get_default(value, OBFUSCATE("FastStageMovement"), false);
                 config.Misc.Skins = get_default(value, OBFUSCATE("Skins"), false);
+                config.Misc.ChatCommands = get_default(value, OBFUSCATE("ChatCommands"), false);
+                config.Misc.RemoveBBAnimation =  get_default(value, OBFUSCATE("RemoveBBAnimation"), false);
             }
         }
         i++;
