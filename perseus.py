@@ -72,7 +72,7 @@ def download_azurlane():
 
 
 def build_perseus_lib(do_clean=False):
-    logging.info('building perseus libs')
+    logging.info(f'{"cleaning" if do_clean else "building"} perseus libs')
 
     # thx n0k0m3
     os.chdir('PerseusLib')
@@ -179,13 +179,18 @@ def main():
         prog='perseus apk builder',
         description='builds apk for you (this is the default behaviour if called with no arguments)')
 
-    parser.add_argument('--skip', help='skip decompile and extracting if possible', default=False)
-    parser.add_argument('--clean',
-                        help='delete built apk, decompiled sources, compiled perseus libs and xapk',
-                        default=False)
+    parser.add_argument('--skip', 
+                        help='skip decompile and extracting if possible', 
+                        default=True,
+                        action=argparse.BooleanOptionalAction)
     parser.add_argument('--quick-rebuild',
                         help='rebuild apk by replacing libs in the apk instead of using apktool (saves 40s)',
-                        default=False)
+                        default=True,
+                        action=argparse.BooleanOptionalAction)
+    parser.add_argument('--clean',
+                        help='delete built apk, decompiled sources, compiled perseus libs and xapk',
+                        default=False,
+                        action=argparse.BooleanOptionalAction)
     args = parser.parse_args()
 
     skip = args.skip

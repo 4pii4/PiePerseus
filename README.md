@@ -14,16 +14,16 @@
 ## Usage
 ```
 $ python perseus.py --help
-usage: perseus apk builder [-h] [--skip SKIP] [--clean CLEAN] [--quick-rebuild QUICK_REBUILD]
+usage: perseus apk builder [-h] [--skip | --no-skip] [--quick-rebuild | --no-quick-rebuild] [--clean | --no-clean]
 
 builds apk for you (this is the default behaviour if called with no arguments)
 
 options:
   -h, --help            show this help message and exit
-  --skip SKIP           skip decompile and extracting if possible
-  --clean CLEAN         delete built apk, decompiled sources, compiled perseus libs and xapk
-  --quick-rebuild QUICK_REBUILD
+  --skip, --no-skip     skip decompile and extracting if possible
+  --quick-rebuild, --no-quick-rebuild
                         rebuild apk by replacing libs in the apk instead of using apktool (saves 40s)
+  --clean, --no-clean   delete built apk, decompiled sources, compiled perseus libs and xapk
 ```
 
 Recommended usage:
@@ -39,6 +39,8 @@ If the built APK doesn't work for you and you're on Windows, try running the scr
 ## Features and goals:
 - [x] Config file in `json` (instead of archaic `.ini`)
 - [x] Chat commands, **disabled by default**
+- [x] Disable low morale warning
+- [x] Higher auto repeat limit (instead of 3)
 - [ ] Skip animations for even faster battle
   - [x] Skip battleship firing animation
 - [ ] Commander name/id/oil/coin/gem spoof

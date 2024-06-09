@@ -58,8 +58,10 @@ Note: values that don't exist will be treated as disabled.
         "ExerciseGodmode": false,
         "FastStageMovement": false,
         "Skins": false,
+        "AutoRepeatLimit": -1,
         "ChatCommands":  false,
-        "RemoveBBAnimation": false
+        "RemoveBBAnimation": false,
+        "RemoveMoraleWarning": false
     }
 }
 ```
