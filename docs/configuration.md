@@ -52,6 +52,13 @@ Note: values that don't exist will be treated as disabled.
         "Damage": -1,
         "ReloadMax": -1
     },
+    
+    "Spoof": {
+        "Enabled": false,
+        "Name": "",
+        "Id": "",
+        "Lv": 0
+    },
 
     "Misc": {
         "Enabled": false,

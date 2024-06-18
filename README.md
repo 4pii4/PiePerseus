@@ -37,6 +37,7 @@ The first build takes 3 to 5 minutes, subsequent builds take about 20-30 seconds
 If the built APK doesn't work for you and you're on Windows, try running the script inside Git Bash/MSYS.
 
 ## Features and goals:
+- [x] No chat/name censorship
 - [x] Config file in `json` (instead of archaic `.ini`)
 - [x] Chat commands, **disabled by default**
 - [x] Disable low morale warning
@@ -44,6 +45,7 @@ If the built APK doesn't work for you and you're on Windows, try running the scr
 - [ ] Skip animations for even faster battle
   - [x] Skip battleship firing animation
 - [ ] Commander name/id/oil/coin/gem spoof
+  - [x] Commander name/id/level spoof
 
 ## Documentation
 

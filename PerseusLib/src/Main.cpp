@@ -20,10 +20,15 @@
 //Target lib here
 #define targetLibName OBFUSCATE("libil2cpp.so")
 #define tostr(x) (static_cast<std::string>(x))
+#define stdstr(x) (static_cast<std::string>(OBFUSCATE(x)))
+#define GETLUAFUNC(method) getFunctionAddress(OBFUSCATE("LuaInterface"), OBFUSCATE("LuaDLL"), OBFUSCATE(method))
+#define STR(str) il2cpp_string_new(OBFUSCATE(str))
 
 #include "Includes/Macros.h"
 #include "Includes/json.hpp"
 #include "Structs.h"
+#include "modules/spoof.hpp"
+#include "modules/command.hpp"
 
 using ordered_json = nlohmann::ordered_json;
 using json = nlohmann::json;
@@ -119,7 +124,7 @@ bool readSkinsFile() {
 }
 
 bool isEnabled(const std::string &param) {
-    return param != tostr(OBFUSCATE("false"));
+    return param != stdstr("false");
 }
 
 bool isEnabled(const int param) {
@@ -143,7 +148,7 @@ void checkHeader(const std::string &line, const std::string &header) {
 bool getKeyEnabled(const std::string &line, const std::string &key) {
     std::vector<std::string> splitLine = split(line, '=');
     std::string value = splitLine[1];
-    if (value != tostr(OBFUSCATE("true")) && value != tostr(OBFUSCATE("false")) || splitLine[0] != key) {
+    if (value != stdstr("true") && value != stdstr("false") || splitLine[0] != key) {
         config.Valid = false;
         return false;
     }
@@ -157,7 +162,7 @@ std::string getKeyValue(const std::string &line, const std::string &key) {
         if (splitLine[0] != key) {
             throw 1;
         }
-        if (value == tostr(OBFUSCATE("false"))) {
+        if (value == stdstr("false")) {
             return value;
         }
         if (getValue(value) < 0) {
@@ -166,7 +171,7 @@ std::string getKeyValue(const std::string &line, const std::string &key) {
     }
     catch (...) {
         config.Valid = false;
-        return tostr(OBFUSCATE("false"));
+        return stdstr("false");
     }
     return value;
 }
@@ -192,8 +197,6 @@ Il2CppMethodPointer *getFunctionAddress(char *namespaze, char *klass, char *meth
     return imethod->methodPointer;
 }
 
-#define GETLUAFUNC(method) getFunctionAddress(OBFUSCATE("LuaInterface"), OBFUSCATE("LuaDLL"), OBFUSCATE(method))
-#define STR(str) il2cpp_string_new(OBFUSCATE(str))
 
 void loadluafuncs() {
     // populate lua funcs
@@ -217,6 +220,8 @@ void loadluafuncs() {
     lua_pushstring = (void (*)(lua_State *, Il2CppString *)) GETLUAFUNC("lua_pushstring");
     lua_remove = (void (*)(lua_State *, int)) GETLUAFUNC("lua_remove");
     lua_gettop = (int (*)(lua_State *)) GETLUAFUNC("lua_gettop");
+    lua_settable = (void (*)(lua_State *, int)) GETLUAFUNC("lua_settable");
+    lua_rawseti = (void (*)(lua_State *, int, int)) GETLUAFUNC("lua_rawseti");
 }
 
 void replaceAttributeN(lua_State *L, Il2CppString *attribute, int number) {
@@ -424,12 +429,6 @@ void modSkins(lua_State *L) {
     lua_setfield(L, -2, STR("SetSkinList"));
     lua_pop(L, 1);
 
-    // doesn't work anymore
-//    lua_getglobal( L, STR( "SwichSkinLayer" ));
-//    lua_pushcfunction( L, hookSSLSetSkinList );
-//    lua_setfield( L, -2, STR( "setSkinList" ));
-//    lua_pop( L, 1 );
-
     // rename Ship's New function (its Ctor) to oldCtor
     // and set New to wrapShipCtor.
     lua_getglobal(L, STR("Ship"));
@@ -450,13 +449,48 @@ void modSkins(lua_State *L) {
     }
 }
 
-void handleCommand(std::string cmd) {
-    percyLog(OBFUSCATE("command: %s"), cmd.c_str());
+void luaMessageBox(lua_State *L, std::string msg) {
+    lua_getglobal(L, STR("pg"));
+    lua_getfield(L, -1, STR("MsgboxMgr"));
+    lua_getfield(L, -1, STR("GetInstance"));
+    lua_pcall(L, 0,1, 0);
+    lua_getfield(L, -1, STR("ShowMsgBox"));
+    lua_pushvalue(L, -2);
 
-    if (cmd == tostr(OBFUSCATE("kill")) || cmd == tostr(OBFUSCATE("crash"))) {
-        crash();
-    } 
+    lua_newtable(L);
+
+    lua_pushstring(L, STR("type"));
+    lua_pushnumber(L, 7); // helpmsg
+    lua_settable(L, -3);
+
+    // helps is of type array of table with key `info` in each table
+    lua_pushstring(L, STR("helps"));
+        lua_createtable(L, 1, 0);
+            lua_newtable(L);
+            lua_pushstring(L, STR("info"));
+            lua_pushstring(L, stdstr2ilstr(msg));
+            lua_settable(L, -3);
+        lua_rawseti(L, -2, 1);
+    lua_settable(L, -3);
+
+    lua_pcall(L, 2, 0, 0);
 }
+
+void luaToast(lua_State *L, std::string msg) {
+    lua_getglobal(L, STR("pg"));
+    lua_getfield(L, -1, STR("TipsMgr"));
+    lua_getfield(L, -1, STR("GetInstance"));
+    lua_remove(L, -2);
+    lua_remove(L, -2);
+    lua_pcall(L, 0, 1, 0);
+
+    // :ShowTips(slot0, string)
+    lua_getfield(L, -1, STR("ShowTips"));
+    lua_insert(L, -2);
+    lua_pushstring(L, stdstr2ilstr(msg));
+    lua_pcall(L, 2, 0, 0);
+}
+
 
 int hookSendMsgExecute(lua_State *L) {
     lua_getfield(L, 2, STR("getBody"));
@@ -470,7 +504,7 @@ int hookSendMsgExecute(lua_State *L) {
     std::string prefix(".");
     if (!msg.compare(0, prefix.size(), prefix)) {
         std::string cmd = msg.substr(1);
-        handleCommand(cmd);
+        handleCommand(L, cmd);
     } else {
         // TODO: maybe call the old function
     }
@@ -528,12 +562,13 @@ int hookBMWABSetActive(lua_State *L) {
     lua_remove(L, -2);
     lua_getfield(L, -1, STR("BattleManualWeaponAutoBot"));
     lua_remove(L, -2);
-    lua_getfield(L, -1, STR("ktgw_old_SetActive"));
+    lua_getfield(L, -1, STR("oldSetActive"));
     lua_remove(L, -2);
     lua_pushvalue(L, 1);
     lua_pushvalue(L, 2);
     lua_pushboolean(L, 0);
     lua_pcall(L, 3, 0, 0);
+    lua_pop(L, 3);
     
     return 0;
 }
@@ -575,7 +610,7 @@ void modMisc(lua_State *L) {
     
     // thanks cmdtaves for the following patches
     if (config.Misc.RemoveBBAnimation) {
-        luaHookFunc(L, OBFUSCATE("ys.Battle.BattleManualWeaponAutoBot.SetActive"), hookBMWABSetActive, OBFUSCATE("ktgw_old_"));
+        luaHookFunc(L, OBFUSCATE("ys.Battle.BattleManualWeaponAutoBot.SetActive"), hookBMWABSetActive, OBFUSCATE("old"));
     }
     
     if (config.Misc.RemoveMoraleWarning) {
@@ -916,6 +951,19 @@ int hookBUAddBuff(lua_State *L) {
     return 0;
 }
 
+// str, options
+int wvHook(lua_State *L) {
+    int nstack = lua_gettop(L);
+    if (nstack == 1) {
+        lua_pushnumber(L, 0);
+        return 1;
+    } else {
+        lua_pushnumber(L, 0);
+        lua_pushvalue(L, 1);
+        return 2;
+    }
+}
+
 const char *(*old_lua_tolstring)(lua_State *instance, int index, int &strLen);
 
 const char *lua_tolstring(lua_State *instance, int index, int &strLen) {
@@ -940,10 +988,17 @@ const char *lua_tolstring(lua_State *instance, int index, int &strLen) {
         lua_setfield(nL, -2, STR("commitTrybat"));
         lua_pop(nL, 1);
 
+        if (config.Spoof.Enabled) { 
+            modSpoof(nL); 
+            parseLv(nL, config.Spoof.lv);
+        }
         if (config.Aircraft.Enabled) { modAircraft(nL); }
         if (config.Enemies.Enabled) { modEnemies(nL); }
         if (config.Misc.Enabled) { modMisc(nL); }
         if (config.Weapons.Enabled) { modWeapons(nL); }
+        
+        lua_pushcfunction(nL, wvHook);
+        lua_setglobal(nL, STR("wordVer"));
     }
     return old_lua_tolstring(instance, index, strLen);
 }
@@ -981,24 +1036,30 @@ void getConfigPath(JNIEnv *env, jobject context) {
     env->ReleaseStringUTFChars(obj_Path, path);
 }
 
-bool get_default(nlohmann::basic_json<nlohmann::ordered_map> obj, std::string name, bool _default){
+template <typename T>
+T jsonGetKey(nlohmann::basic_json<nlohmann::ordered_map> obj, std::string name, T _default) {
     auto iter = obj.find(name);
     if (iter == obj.end())
         return _default;
-    if (!obj[name].is_boolean())
-        return _default;
-    return obj[name].get<bool>();
+    
+    if constexpr (std::is_same_v<T, bool>) {
+        if (!obj[name].is_boolean())
+            return _default;
+        return obj[name].get<bool>();
+    } else if constexpr (std::is_same_v<T, int>) {
+        if (!obj[name].is_number_integer())
+            return _default;
+        return obj[name].get<int>();
+    } else if constexpr (std::is_same_v<T, double>) {
+        if (!obj[name].is_number())
+            return _default;
+        return obj[name].get<double>();
+    } else if constexpr (std::is_same_v<T, std::string>) {
+        if (!obj[name].is_string())
+            return _default;
+        return obj[name].get<std::string>();
+    }
 }
-
-int get_default(nlohmann::basic_json<nlohmann::ordered_map> obj, std::string name, int _default){
-    auto iter = obj.find(name);
-    if (iter == obj.end())
-        return _default;
-    if (!obj[name].is_number_integer())
-        return _default;
-    return obj[name].get<int>();
-}
-
 
 void init(JNIEnv *env, jclass clazz, jobject context) {
     // get external path where config shall be located
@@ -1032,60 +1093,66 @@ void init(JNIEnv *env, jclass clazz, jobject context) {
 
         if (i > 1) {
             if (key == tostr(OBFUSCATE("Aircraft"))) {
-                config.Aircraft.Enabled = get_default(value, OBFUSCATE("Enabled"), false);
-                config.Aircraft.Accuracy = get_default(value, OBFUSCATE("Accuracy"), -1);
-                config.Aircraft.AccuracyGrowth = get_default(value, OBFUSCATE("AccuracyGrowth"), -1);
-                config.Aircraft.AttackPower = get_default(value, OBFUSCATE("AttackPower"), -1);
-                config.Aircraft.AttackPowerGrowth = get_default(value, OBFUSCATE("AttackPowerGrowth"), -1);
-                config.Aircraft.CrashDamage = get_default(value, OBFUSCATE("CrashDamage"), -1);
-                config.Aircraft.Hp = get_default(value, OBFUSCATE("Hp"), -1);
-                config.Aircraft.HpGrowth = get_default(value, OBFUSCATE("HpGrowth"), -1);
-                config.Aircraft.Speed = get_default(value, OBFUSCATE("Speed"), -1);
+                config.Aircraft.Enabled = jsonGetKey<bool>(value, OBFUSCATE("Enabled"), false);
+                config.Aircraft.Accuracy = jsonGetKey<int>(value, OBFUSCATE("Accuracy"), -1);
+                config.Aircraft.AccuracyGrowth = jsonGetKey<int>(value, OBFUSCATE("AccuracyGrowth"), -1);
+                config.Aircraft.AttackPower = jsonGetKey<int>(value, OBFUSCATE("AttackPower"), -1);
+                config.Aircraft.AttackPowerGrowth = jsonGetKey<int>(value, OBFUSCATE("AttackPowerGrowth"), -1);
+                config.Aircraft.CrashDamage = jsonGetKey<int>(value, OBFUSCATE("CrashDamage"), -1);
+                config.Aircraft.Hp = jsonGetKey<int>(value, OBFUSCATE("Hp"), -1);
+                config.Aircraft.HpGrowth = jsonGetKey<int>(value, OBFUSCATE("HpGrowth"), -1);
+                config.Aircraft.Speed = jsonGetKey<int>(value, OBFUSCATE("Speed"), -1);
             } else if (key == tostr(OBFUSCATE("Enemies"))) {
-                config.Enemies.Enabled = get_default(value, OBFUSCATE("Enabled"), false);
-                config.Enemies.AntiAir = get_default(value, OBFUSCATE("AntiAir"), -1);
-                config.Enemies.AntiAirGrowth = get_default(value, OBFUSCATE("AntiAirGrowth"), -1);
-                config.Enemies.AntiSubmarine = get_default(value, OBFUSCATE("AntiSubmarine"), -1);
-                config.Enemies.Armor = get_default(value, OBFUSCATE("Armor"), -1);
-                config.Enemies.ArmorGrowth = get_default(value, OBFUSCATE("ArmorGrowth"), -1);
-                config.Enemies.Cannon = get_default(value, OBFUSCATE("Cannon"), -1);
-                config.Enemies.CannonGrowth = get_default(value, OBFUSCATE("CannonGrowth"), -1);
-                config.Enemies.Evasion = get_default(value, OBFUSCATE("Evasion"), -1);
-                config.Enemies.EvasionGrowth = get_default(value, OBFUSCATE("EvasionGrowth"), -1);
-                config.Enemies.Hit = get_default(value, OBFUSCATE("Hit"), -1);
-                config.Enemies.HitGrowth = get_default(value, OBFUSCATE("HitGrowth"), -1);
-                config.Enemies.Hp = get_default(value, OBFUSCATE("Hp"), -1);
-                config.Enemies.HpGrowth = get_default(value, OBFUSCATE("HpGrowth"), -1);
-                config.Enemies.Luck = get_default(value, OBFUSCATE("Luck"), -1);
-                config.Enemies.LuckGrowth = get_default(value, OBFUSCATE("LuckGrowth"), -1);
-                config.Enemies.Reload = get_default(value, OBFUSCATE("Reload"), -1);
-                config.Enemies.ReloadGrowth = get_default(value, OBFUSCATE("ReloadGrowth"), -1);
-                config.Enemies.RemoveBuffs = get_default(value, OBFUSCATE("RemoveBuffs"), false);
-                config.Enemies.RemoveEquipment = get_default(value, OBFUSCATE("RemoveEquipment"), false);
-                config.Enemies.RemoveSkill = get_default(value, OBFUSCATE("RemoveSkill"), false);
-                config.Enemies.Speed = get_default(value, OBFUSCATE("Speed"), -1);
-                config.Enemies.SpeedGrowth = get_default(value, OBFUSCATE("SpeedGrowth"), -1);
-                config.Enemies.Torpedo = get_default(value, OBFUSCATE("Torpedo"), -1);
-                config.Enemies.TorpedoGrowth = get_default(value, OBFUSCATE("TorpedoGrowth"), -1);
+                config.Enemies.Enabled = jsonGetKey<bool>(value, OBFUSCATE("Enabled"), false);
+                config.Enemies.AntiAir = jsonGetKey<int>(value, OBFUSCATE("AntiAir"), -1);
+                config.Enemies.AntiAirGrowth = jsonGetKey<int>(value, OBFUSCATE("AntiAirGrowth"), -1);
+                config.Enemies.AntiSubmarine = jsonGetKey<int>(value, OBFUSCATE("AntiSubmarine"), -1);
+                config.Enemies.Armor = jsonGetKey<int>(value, OBFUSCATE("Armor"), -1);
+                config.Enemies.ArmorGrowth = jsonGetKey<int>(value, OBFUSCATE("ArmorGrowth"), -1);
+                config.Enemies.Cannon = jsonGetKey<int>(value, OBFUSCATE("Cannon"), -1);
+                config.Enemies.CannonGrowth = jsonGetKey<int>(value, OBFUSCATE("CannonGrowth"), -1);
+                config.Enemies.Evasion = jsonGetKey<int>(value, OBFUSCATE("Evasion"), -1);
+                config.Enemies.EvasionGrowth = jsonGetKey<int>(value, OBFUSCATE("EvasionGrowth"), -1);
+                config.Enemies.Hit = jsonGetKey<int>(value, OBFUSCATE("Hit"), -1);
+                config.Enemies.HitGrowth = jsonGetKey<int>(value, OBFUSCATE("HitGrowth"), -1);
+                config.Enemies.Hp = jsonGetKey<int>(value, OBFUSCATE("Hp"), -1);
+                config.Enemies.HpGrowth = jsonGetKey<int>(value, OBFUSCATE("HpGrowth"), -1);
+                config.Enemies.Luck = jsonGetKey<int>(value, OBFUSCATE("Luck"), -1);
+                config.Enemies.LuckGrowth = jsonGetKey<int>(value, OBFUSCATE("LuckGrowth"), -1);
+                config.Enemies.Reload = jsonGetKey<int>(value, OBFUSCATE("Reload"), -1);
+                config.Enemies.ReloadGrowth = jsonGetKey<int>(value, OBFUSCATE("ReloadGrowth"), -1);
+                config.Enemies.RemoveBuffs = jsonGetKey<bool>(value, OBFUSCATE("RemoveBuffs"), false);
+                config.Enemies.RemoveEquipment = jsonGetKey<bool>(value, OBFUSCATE("RemoveEquipment"), false);
+                config.Enemies.RemoveSkill = jsonGetKey<bool>(value, OBFUSCATE("RemoveSkill"), false);
+                config.Enemies.Speed = jsonGetKey<int>(value, OBFUSCATE("Speed"), -1);
+                config.Enemies.SpeedGrowth = jsonGetKey<int>(value, OBFUSCATE("SpeedGrowth"), -1);
+                config.Enemies.Torpedo = jsonGetKey<int>(value, OBFUSCATE("Torpedo"), -1);
+                config.Enemies.TorpedoGrowth = jsonGetKey<int>(value, OBFUSCATE("TorpedoGrowth"), -1);
             } else if (key == tostr(OBFUSCATE("Weapons"))) {
-                config.Weapons.Enabled = get_default(value, OBFUSCATE("Enabled"), false);
-                config.Weapons.Damage = get_default(value, OBFUSCATE("Damage"), -1);
-                config.Weapons.ReloadMax = get_default(value, OBFUSCATE("ReloadMax"), -1);
+                config.Weapons.Enabled = jsonGetKey<bool>(value, OBFUSCATE("Enabled"), false);
+                config.Weapons.Damage = jsonGetKey<int>(value, OBFUSCATE("Damage"), -1);
+                config.Weapons.ReloadMax = jsonGetKey<int>(value, OBFUSCATE("ReloadMax"), -1);
+            } else if (key == tostr(OBFUSCATE("Spoof"))) { 
+                config.Spoof.Enabled = jsonGetKey<bool>(value, OBFUSCATE("Enabled"), false);
+                config.Spoof.name = jsonGetKey<std::string>(value, OBFUSCATE("Name"), stdstr(""));
+                config.Spoof.id = jsonGetKey<std::string>(value, OBFUSCATE("Id"), stdstr(""));
+                config.Spoof.lv = jsonGetKey<double>(value, OBFUSCATE("Lv"), -1);
             } else if (key == tostr(OBFUSCATE("Misc"))) {
-                config.Misc.Enabled = get_default(value, OBFUSCATE("Enabled"), false);
-                config.Misc.ExerciseGodmode = get_default(value, OBFUSCATE("ExerciseGodmode"), false);
-                config.Misc.FastStageMovement = get_default(value, OBFUSCATE("FastStageMovement"), false);
-                config.Misc.Skins = get_default(value, OBFUSCATE("Skins"), false);
-                config.Misc.AutoRepeatLimit = get_default(value, OBFUSCATE("AutoRepeatLimit"), -1);
-                config.Misc.ChatCommands = get_default(value, OBFUSCATE("ChatCommands"), false);
-                config.Misc.RemoveBBAnimation = get_default(value, OBFUSCATE("RemoveBBAnimation"), false);
-                config.Misc.RemoveMoraleWarning = get_default(value, OBFUSCATE("RemoveMoraleWarning"), false);
+                config.Misc.Enabled = jsonGetKey<bool>(value, OBFUSCATE("Enabled"), false);
+                config.Misc.ExerciseGodmode = jsonGetKey<bool>(value, OBFUSCATE("ExerciseGodmode"), false);
+                config.Misc.FastStageMovement = jsonGetKey<bool>(value, OBFUSCATE("FastStageMovement"), false);
+                config.Misc.Skins = jsonGetKey<bool>(value, OBFUSCATE("Skins"), false);
+                config.Misc.AutoRepeatLimit = jsonGetKey<int>(value, OBFUSCATE("AutoRepeatLimit"), -1);
+                config.Misc.ChatCommands = jsonGetKey<bool>(value, OBFUSCATE("ChatCommands"), false);
+                config.Misc.RemoveBBAnimation = jsonGetKey<bool>(value, OBFUSCATE("RemoveBBAnimation"), false);
+                config.Misc.RemoveMoraleWarning = jsonGetKey<bool>(value, OBFUSCATE("RemoveMoraleWarning"), false);
             }
         }
         i++;
     }
 
-    Toast(env, context, OBFUSCATE("Enjoy the feet, by @Egoistically and @pi.kt"), ToastLength::LENGTH_LONG);
+    Toast(env, context, OBFUSCATE("Enjoy the feet, by @Egoistically, @pi.kt and @cmdtaves"), ToastLength::LENGTH_LONG);
+    percyLog(OBFUSCATE("config loaded"));
 
     pthread_t ptid;
     pthread_create(&ptid, nullptr, hack_thread, nullptr);
@@ -1096,6 +1163,7 @@ void init(JNIEnv *env, jclass clazz, jobject context) {
 }
 
 int RegisterMain(JNIEnv *env) {
+    percyLog(OBFUSCATE("injecting"));
     JNINativeMethod methods[] = {
             {
                     OBFUSCATE("init"),
@@ -1109,6 +1177,7 @@ int RegisterMain(JNIEnv *env) {
     if (env->RegisterNatives(clazz, methods, sizeof(methods) / sizeof(methods[0])) != 0)
         return JNI_ERR;
 
+    percyLog(OBFUSCATE("injected"));
     return JNI_OK;
 }
 

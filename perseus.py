@@ -128,7 +128,7 @@ def copy_perseus_libs():
 
 def patch():
     logging.info('patching decompiled sources')
-    bbox(f'sh {os.path.join(rootdir, 'scripts', 'patch.sh')}')
+    bbox(f"sh {os.path.join(rootdir, 'scripts', 'patch.sh')}")
 
 
 def rebuild():
@@ -219,9 +219,8 @@ def main():
         sign_apk()
         end = time.time()
 
-        logging.info(
-            f'built apk in {os.path.join(rootdir, 'apk_build', f'{pkg}-{pkg_version}.patched.apk')}')
-        logging.info(f'done in {round(end - start, 2)} seconds')
+        logging.info(f"built apk in {os.path.join(rootdir, 'apk_build', f'{pkg}-{pkg_version}.patched.apk')}")
+        logging.info(f"done in {round(end - start, 2)} seconds")
 
 
 if __name__ == '__main__':

@@ -3,7 +3,7 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE    := Perseus
 
-LOCAL_CPPFLAGS := -w -std=c++17
+LOCAL_CPPFLAGS := -w -std=c++20
 LOCAL_LDLIBS := -llog
 LOCAL_C_INCLUDES += $(LOCAL_PATH)
 

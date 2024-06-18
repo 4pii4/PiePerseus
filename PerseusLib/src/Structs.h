@@ -139,11 +139,29 @@ struct Config {
         int Damage = -1;
         int ReloadMax = -1;
     };
+    
+    struct SSpoof {
+        bool Enabled = false;
+
+        std::string name = "";
+        std::string id = "";
+        double lv = 0;
+        
+        // internal values
+        int maxCoins = 0;
+        int maxOil = 0;
+        int lvInt = 0;
+        double lvFrac = 0;
+        int lvMax = 0;
+        int spoofXp = 0;
+    };
+
 
     AAircraft Aircraft;
     EEnemies Enemies;
-    MMisc Misc;
     WWeapons Weapons;
+    SSpoof Spoof;
+    MMisc Misc;
     bool Valid = true;
 };
 
@@ -196,6 +214,13 @@ auto _default_raw = OBFUSCATE( R"r({
         "Damage": -1,
         "ReloadMax": -1
     },
+    
+    "Spoof": {
+        "Enabled": false,
+        "Name": "",
+        "Id": "",
+        "Lv": 0
+    },
 
     "Misc": {
         "Enabled": false,
@@ -211,6 +236,5 @@ auto _default_raw = OBFUSCATE( R"r({
 )r");
 
 auto _default = ordered_json::parse(static_cast<std::string>(_default_raw));
-
 
 #endif //ANDROID_HOOKING_PATCHING_TEMPLATE_MAIN_STRUCTS_H
