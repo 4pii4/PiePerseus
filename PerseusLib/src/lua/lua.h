@@ -240,7 +240,7 @@ int   (lua_error) (lua_State *L);
 
 int   (*lua_next) (lua_State *L, int idx);
 
-void  (lua_concat) (lua_State *L, int n);
+void  (*lua_concat) (lua_State *L, int n);
 
 lua_Alloc (lua_getallocf) (lua_State *L, void **ud);
 void lua_setallocf (lua_State *L, lua_Alloc f, void *ud);
@@ -337,13 +337,14 @@ int lua_getinfo (lua_State *L, const char *what, lua_Debug *ar);
 const char *lua_getlocal (lua_State *L, const lua_Debug *ar, int n);
 const char *lua_setlocal (lua_State *L, const lua_Debug *ar, int n);
 const char *lua_getupvalue (lua_State *L, int funcindex, int n);
-const char *lua_setupvalue (lua_State *L, int funcindex, int n);
+const char * (*lua_setupvalue) (lua_State *L, int funcindex, int n);
 
 int lua_sethook (lua_State *L, lua_Hook func, int mask, int count);
 lua_Hook lua_gethook (lua_State *L);
 int lua_gethookmask (lua_State *L);
 int lua_gethookcount (lua_State *L);
 
+int (*luaL_getmetafield)(lua_State *L, int idx, Il2CppString *field);
 
 struct lua_Debug {
     int event;

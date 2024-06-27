@@ -68,7 +68,9 @@ Note: values that don't exist will be treated as disabled.
         "AutoRepeatLimit": -1,
         "ChatCommands":  false,
         "RemoveBBAnimation": false,
-        "RemoveMoraleWarning": false
+        "RemoveMoraleWarning": false,
+        "RemoveHardModeStatLimit": false,
+        "RemoveNSFWArts": false
     }
 }
 ```

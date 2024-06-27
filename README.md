@@ -26,13 +26,7 @@ options:
   --clean, --no-clean   delete built apk, decompiled sources, compiled perseus libs and xapk
 ```
 
-Recommended usage:
-
-```shell
-$ python perseus.py --skip=True --quick-rebuild=True
-```
-
-The first build takes 3 to 5 minutes, subsequent builds take about 20-30 seconds.
+The first build takes 3 to 5 minutes, subsequent builds take 15-20 seconds.
 
 If the built APK doesn't work for you and you're on Windows, try running the script inside Git Bash/MSYS.
 
@@ -40,10 +34,13 @@ If the built APK doesn't work for you and you're on Windows, try running the scr
 - [x] No chat/name censorship
 - [x] Config file in `json` (instead of archaic `.ini`)
 - [x] Chat commands, **disabled by default**
-- [x] Disable low morale warning
-- [x] Higher auto repeat limit (instead of 3)
-- [ ] Skip animations for even faster battle
+- [x] Remove low morale warning
+- [x] Higher auto repeat limit
+- [ ] Skip animations
   - [x] Skip battleship firing animation
+- [ ] Hide ~~potentially~~ NSFW images/screens
+  - [x] Hide loading background images
+- [x] Remove hard mode stat/formation requirements
 - [ ] Commander name/id/oil/coin/gem spoof
   - [x] Commander name/id/level spoof
 

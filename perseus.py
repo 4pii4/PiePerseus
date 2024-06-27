@@ -5,6 +5,7 @@ import os
 import shutil
 import time
 import zipfile
+import itertools
 from subprocess import Popen, PIPE, STDOUT, run
 import logging
 import sys
@@ -133,20 +134,25 @@ def patch():
 
 def rebuild():
     newpkg = f'{pkg}-{pkg_version}.patched.apk'
-    tmppkg = newpkg + '.working.zip'
+    newzip = newpkg + '.zip'
     if quick_rebuild and os.path.isfile(newpkg):
         logging.info(f'rebuiling {pkg}.apk quickly')
+        
+        shutil.move(newpkg, newzip)
+        
+        libs = [f'{pkg}/lib/{arch}/libPerseus.so' for arch in ['arm64-v8a', 'armeabi-v7a', 'x86']]
+        libs_renamed = [lib.removeprefix(f'{pkg}/') for lib in libs]
 
-        shutil.move(newpkg, tmppkg)
-        with zipfile.ZipFile(tmppkg) as old:
-            with zipfile.ZipFile(newpkg, 'w') as new:
-                for zi in old.infolist():
-                    if zi.filename.endswith('libPerseus.so'):
-                        new.write(f'{pkg}/{zi.filename}', zi.filename)
-                    else:
-                        new.writestr(zi, old.read(zi.filename))
+        proc1 = run([executable_path('7zz'), '-y', 'd', newzip] + libs_renamed, stdout=PIPE)
+        logging.info(f'deleting libs in archive, ret={proc1.returncode}')
 
-        os.remove(tmppkg)
+        proc2 = run([executable_path('7zz'), '-y', 'a', newzip] + libs, stdout=PIPE)
+        logging.info(f'adding libs to archive, ret={proc2.returncode}')
+        
+        proc3 = run([executable_path('7zz'), '-y', 'rn', newzip] + list(itertools.chain.from_iterable(zip(libs, libs_renamed))), stdout=PIPE)
+        logging.info(f'renaming libs in archive, ret={proc3.returncode}')
+        
+        shutil.move(newzip, newpkg)
 
         return
 

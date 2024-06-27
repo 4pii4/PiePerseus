@@ -1,34 +1,35 @@
-#include <list>
-#include <vector>
+#include <android/log.h>
 #include <cstring>
+#include <dlfcn.h>
+#include <fstream>
+#include <iostream>
+#include <jni.h>
+#include <list>
 #include <map>
 #include <sstream>
 #include <thread>
-#include <cstring>
-#include <jni.h>
-#include <unistd.h>
-#include <fstream>
-#include <iostream>
-#include <dlfcn.h>
 #include <type_traits>
-#include <android/log.h>
-#include "Includes/Logger.h"
-#include "Includes/obfuscate.h"
-#include "Includes/Utils.h"
-#include "Includes/Toast.hpp"
+#include <unistd.h>
+#include <vector>
 
-//Target lib here
+#include "Includes/obfuscate.h"
+#include "Includes/Logger.h"
+#include "Includes/Toast.hpp"
+#include "Includes/Utils.h"
+
+#include "Includes/Macros.h"
+#include "Includes/json.hpp"
+#include "Structs.h"
+#include "hooks/combatloadui.hpp"
+#include "modules/command.hpp"
+#include "modules/spoof.hpp"
+
+// Target lib here
 #define targetLibName OBFUSCATE("libil2cpp.so")
 #define tostr(x) (static_cast<std::string>(x))
 #define stdstr(x) (static_cast<std::string>(OBFUSCATE(x)))
 #define GETLUAFUNC(method) getFunctionAddress(OBFUSCATE("LuaInterface"), OBFUSCATE("LuaDLL"), OBFUSCATE(method))
 #define STR(str) il2cpp_string_new(OBFUSCATE(str))
-
-#include "Includes/Macros.h"
-#include "Includes/json.hpp"
-#include "Structs.h"
-#include "modules/spoof.hpp"
-#include "modules/command.hpp"
 
 using ordered_json = nlohmann::ordered_json;
 using json = nlohmann::json;
@@ -40,17 +41,14 @@ std::map<int, int> skins;
 Config config;
 Il2CppImage *image;
 
-
 const char *lua_tolstring(lua_State *instance, int index, int &strLen);
-
-Il2CppString *stdstr2ilstr(std::string s) {
-    return il2cpp_string_new((char *)s.c_str());
-}
+Il2CppString *stdstr2ilstr(std::string s) { return il2cpp_string_new((char *)s.c_str()); }
 
 void crash() {
-    abort(); // std posix
-    *((char*)-1) = 'x'; // redis
-    int *p = (int *)-1; *p = 1; // random
+    abort();             // std posix
+    *((char *)-1) = 'x'; // redis
+    int *p = (int *)-1;
+    *p = 1; // random
 }
 
 void percyLog(const char *fmt, ...) {
@@ -87,7 +85,7 @@ bool writeSkinsFile() {
     std::ofstream skinsFile(skinPath);
 
     if (skinsFile.is_open()) {
-        for (auto const &kv: skins) {
+        for (auto const &kv : skins) {
             skinsFile << kv.first << ":" << kv.second << "\n";
         }
         skinsFile.close();
@@ -113,7 +111,7 @@ bool readSkinsFile() {
     }
     skinsFile.close();
 
-    for (const std::string &line: fileLines) {
+    for (const std::string &line : fileLines) {
         std::vector<std::string> splitLines = split(line, ':');
         int shipId = std::stoi(splitLines[0]);
         int skinId = std::stoi(splitLines[1]);
@@ -123,21 +121,13 @@ bool readSkinsFile() {
     return true;
 }
 
-bool isEnabled(const std::string &param) {
-    return param != stdstr("false");
-}
+bool isEnabled(const std::string &param) { return param != stdstr("false"); }
 
-bool isEnabled(const int param) {
-    return param != -1;
-}
+bool isEnabled(const int param) { return param != -1; }
 
-int getValue(const std::string &param) {
-    return std::stoi(param);
-}
+int getValue(const std::string &param) { return std::stoi(param); }
 
-int getValue(const int param) {
-    return param;
-}
+int getValue(const int param) { return param; }
 
 void checkHeader(const std::string &line, const std::string &header) {
     if (line != header) {
@@ -168,8 +158,7 @@ std::string getKeyValue(const std::string &line, const std::string &key) {
         if (getValue(value) < 0) {
             throw 1;
         }
-    }
-    catch (...) {
+    } catch (...) {
         config.Valid = false;
         return stdstr("false");
     }
@@ -178,12 +167,12 @@ std::string getKeyValue(const std::string &line, const std::string &key) {
 
 void loadil2cppfuncs() {
     // populate all il2cpp functions
-    il2cpp_domain_get = (Il2CppDomain *(*)()) GETSYM(targetLibName, "il2cpp_domain_get");
-    il2cpp_domain_assembly_open = (Il2CppAssembly *(*)(void *, char *)) GETSYM(targetLibName, "il2cpp_domain_assembly_open");
-    il2cpp_assembly_get_image = (Il2CppImage *(*)(void *)) GETSYM(targetLibName, "il2cpp_assembly_get_image");
-    il2cpp_class_from_name = (void *(*)(void *, char *, char *)) GETSYM(targetLibName, "il2cpp_class_from_name");
-    il2cpp_class_get_method_from_name = (MethodInfo *(*)(void *, char *, int)) GETSYM( targetLibName, "il2cpp_class_get_method_from_name");
-    il2cpp_string_new = (Il2CppString *(*)(char *)) GETSYM(targetLibName, "il2cpp_string_new");
+    il2cpp_domain_get = (Il2CppDomain * (*)()) GETSYM(targetLibName, "il2cpp_domain_get");
+    il2cpp_domain_assembly_open = (Il2CppAssembly * (*)(void *, char *)) GETSYM(targetLibName, "il2cpp_domain_assembly_open");
+    il2cpp_assembly_get_image = (Il2CppImage * (*)(void *)) GETSYM(targetLibName, "il2cpp_assembly_get_image");
+    il2cpp_class_from_name = (void *(*)(void *, char *, char *))GETSYM(targetLibName, "il2cpp_class_from_name");
+    il2cpp_class_get_method_from_name = (MethodInfo * (*)(void *, char *, int)) GETSYM(targetLibName, "il2cpp_class_get_method_from_name");
+    il2cpp_string_new = (Il2CppString * (*)(char *)) GETSYM(targetLibName, "il2cpp_string_new");
 
     // call the functions necessary to get the image
     Il2CppDomain *domain = il2cpp_domain_get();
@@ -197,31 +186,41 @@ Il2CppMethodPointer *getFunctionAddress(char *namespaze, char *klass, char *meth
     return imethod->methodPointer;
 }
 
-
 void loadluafuncs() {
     // populate lua funcs
-    lua_newthread = (lua_State *(*)(lua_State *)) GETLUAFUNC("lua_newthread");
-    lua_getfield = (void (*)(lua_State *, int, Il2CppString *)) GETLUAFUNC("lua_getfield");
-    lua_gettable = (void (*)(lua_State *, int)) GETLUAFUNC("lua_gettable");
-    lua_setfield = (void (*)(lua_State *, int, Il2CppString *)) GETLUAFUNC("lua_setfield");
-    lua_objlen = (size_t(*)(lua_State *, int)) GETLUAFUNC("lua_objlen");
-    lua_pushnil = (void (*)(lua_State *)) GETLUAFUNC("lua_pushnil");
-    lua_createtable = (void (*)(lua_State *, int, int)) GETLUAFUNC("lua_createtable");
-    lua_pushnumber = (void (*)(lua_State *, double)) GETLUAFUNC("lua_pushnumber");
-    lua_pushboolean = (void (*)(lua_State *, int)) GETLUAFUNC("lua_pushboolean");
-    lua_settop = (void (*)(lua_State *, int)) GETLUAFUNC("lua_settop");
-    lua_next = (int (*)(lua_State *, int)) GETLUAFUNC("lua_next");
-    lua_tonumber = (double (*)(lua_State *, int)) GETLUAFUNC("lua_tonumber");
-    lua_type = (int (*)(lua_State *, int)) GETLUAFUNC("lua_type");
-    lua_pushcclosure = (void (*)(lua_State *, lua_CFunction, int)) GETLUAFUNC( "lua_pushcclosure");
-    lua_pcall = (int (*)(lua_State *, int, int, int)) GETLUAFUNC("lua_pcall");
-    lua_insert = (void (*)(lua_State *, int)) GETLUAFUNC("lua_insert");
-    lua_pushvalue = (void (*)(lua_State *, int)) GETLUAFUNC("lua_pushvalue");
-    lua_pushstring = (void (*)(lua_State *, Il2CppString *)) GETLUAFUNC("lua_pushstring");
-    lua_remove = (void (*)(lua_State *, int)) GETLUAFUNC("lua_remove");
-    lua_gettop = (int (*)(lua_State *)) GETLUAFUNC("lua_gettop");
-    lua_settable = (void (*)(lua_State *, int)) GETLUAFUNC("lua_settable");
-    lua_rawseti = (void (*)(lua_State *, int, int)) GETLUAFUNC("lua_rawseti");
+    lua_newthread = (lua_State * (*)(lua_State *)) GETLUAFUNC("lua_newthread");
+    lua_getfield = (void (*)(lua_State *, int, Il2CppString *))GETLUAFUNC("lua_getfield");
+    lua_gettable = (void (*)(lua_State *, int))GETLUAFUNC("lua_gettable");
+    lua_setfield = (void (*)(lua_State *, int, Il2CppString *))GETLUAFUNC("lua_setfield");
+    lua_objlen = (size_t(*)(lua_State *, int))GETLUAFUNC("lua_objlen");
+    lua_pushnil = (void (*)(lua_State *))GETLUAFUNC("lua_pushnil");
+    lua_createtable = (void (*)(lua_State *, int, int))GETLUAFUNC("lua_createtable");
+    lua_pushnumber = (void (*)(lua_State *, double))GETLUAFUNC("lua_pushnumber");
+    lua_pushboolean = (void (*)(lua_State *, int))GETLUAFUNC("lua_pushboolean");
+    lua_settop = (void (*)(lua_State *, int))GETLUAFUNC("lua_settop");
+    lua_next = (int (*)(lua_State *, int))GETLUAFUNC("lua_next");
+    lua_tonumber = (double (*)(lua_State *, int))GETLUAFUNC("lua_tonumber");
+    lua_type = (int (*)(lua_State *, int))GETLUAFUNC("lua_type");
+    lua_pushcclosure = (void (*)(lua_State *, lua_CFunction, int))GETLUAFUNC("lua_pushcclosure");
+    lua_pcall = (int (*)(lua_State *, int, int, int))GETLUAFUNC("lua_pcall");
+    lua_call = (void (*)(lua_State *, int, int))GETLUAFUNC("lua_call");
+    lua_insert = (void (*)(lua_State *, int))GETLUAFUNC("lua_insert");
+    lua_pushvalue = (void (*)(lua_State *, int))GETLUAFUNC("lua_pushvalue");
+    lua_pushstring = (void (*)(lua_State *, Il2CppString *))GETLUAFUNC("lua_pushstring");
+    lua_remove = (void (*)(lua_State *, int))GETLUAFUNC("lua_remove");
+    lua_gettop = (int (*)(lua_State *))GETLUAFUNC("lua_gettop");
+    lua_settable = (void (*)(lua_State *, int))GETLUAFUNC("lua_settable");
+    lua_rawseti = (void (*)(lua_State *, int, int))GETLUAFUNC("lua_rawseti");
+    lua_rawgeti = (void (*)(lua_State *, int, int))GETLUAFUNC("lua_rawgeti");
+    lua_setupvalue = (const char *(*)(lua_State *, int, int))GETLUAFUNC("lua_setupvalue");
+    lua_equal = (int (*)(lua_State *, int, int))GETLUAFUNC("lua_equal");
+    lua_toboolean = (int (*)(lua_State *, int))GETLUAFUNC("lua_toboolean");
+    lua_lessthan = (int (*)(lua_State *, int, int))GETLUAFUNC("lua_lessthan");
+    lua_replace = (void (*)(lua_State *, int))GETLUAFUNC("lua_replace");
+    lua_concat = (void (*)(lua_State *, int))GETLUAFUNC("lua_concat");
+    lua_isnumber = (int (*)(lua_State *, int))GETLUAFUNC("lua_isnumber");
+
+    luaL_getmetafield = (int (*)(lua_State *, int, Il2CppString *))GETLUAFUNC("luaL_getmetafield");
 }
 
 void replaceAttributeN(lua_State *L, Il2CppString *attribute, int number) {
@@ -243,7 +242,7 @@ std::vector<int> getTableIds(lua_State *L) {
     // loop it
     lua_pushnil(L);
     while (lua_next(L, -2) != 0) {
-        tableIds.push_back((int) lua_tonumber(L, -1));
+        tableIds.push_back((int)lua_tonumber(L, -1));
         lua_pop(L, 1);
     }
 
@@ -257,7 +256,7 @@ void modAircraft(lua_State *L) {
 
     std::vector<int> aircraft = getTableIds(L);
 
-    for (const int &aircraftId: aircraft) {
+    for (const int &aircraftId : aircraft) {
         lua_pushnumber(L, aircraftId);
         lua_gettable(L, -2);
 
@@ -299,7 +298,7 @@ void modEnemies(lua_State *L) {
 
     std::vector<int> enemyShips = getTableIds(L);
 
-    for (const int &enemyId: enemyShips) {
+    for (const int &enemyId : enemyShips) {
         lua_pushnumber(L, enemyId);
         lua_gettable(L, -2);
 
@@ -354,8 +353,8 @@ void modEnemies(lua_State *L) {
         if (isEnabled(config.Enemies.ReloadGrowth)) {
             replaceAttributeN(L, STR("reload_growth"), getValue(config.Enemies.ReloadGrowth));
         }
-        if (config.Enemies.RemoveEquipment) { 
-            emptyAttributeT(L, STR("equipment_list")); 
+        if (config.Enemies.RemoveEquipment) {
+            emptyAttributeT(L, STR("equipment_list"));
         }
         if (isEnabled(config.Enemies.Speed)) {
             replaceAttributeN(L, STR("speed"), getValue(config.Enemies.Speed));
@@ -402,8 +401,60 @@ void modEnemies(lua_State *L) {
     }
 }
 
-int nilFunc(lua_State *L) {
-    return 0;
+int nilFunc(lua_State *L) { return 0; }
+
+int trueFunc(lua_State *L) {
+    lua_pushboolean(L, true);
+    return 1;
+}
+
+void lc_sub(lua_State *L, int idxa, int idxb) {
+    if (lua_isnumber(L, idxa) && lua_isnumber(L, idxb)) {
+        lua_pushnumber(L, lua_tonumber(L, idxa) - lua_tonumber(L, idxb));
+    } else {
+        if (luaL_getmetafield(L, idxa, STR("__sub")) || luaL_getmetafield(L, idxb, STR("__sub"))) {
+            lua_pushvalue(L, idxa < 0 && idxa > LUA_REGISTRYINDEX ? idxa - 1 : idxa);
+            lua_pushvalue(L, idxb < 0 && idxb > LUA_REGISTRYINDEX ? idxb - 2 : idxb);
+            lua_call(L, 2, 1);
+        } else {
+            // luaL_error(L, "attempt to perform arithmetic");
+        }
+    }
+}
+
+void lc_newclosuretable(lua_State *L, int idx) {
+    lua_newtable(L);
+    lua_pushvalue(L, idx);
+    lua_rawseti(L, -2, 0);
+}
+
+void lc_getupvalue(lua_State *L, int tidx, int level, int varid) {
+    if (level == 0) {
+        lua_rawgeti(L, tidx, varid);
+    } else {
+        lua_pushvalue(L, tidx);
+        while (--level >= 0) {
+            lua_rawgeti(L, tidx, 0); /* 0 links to parent table */
+            lua_remove(L, -2);
+            tidx = -1;
+        }
+        lua_rawgeti(L, -1, varid);
+        lua_remove(L, -2);
+    }
+}
+
+void lc_div(lua_State *L, int idxa, int idxb) {
+    if (lua_isnumber(L, idxa) && lua_isnumber(L, idxb)) {
+        lua_pushnumber(L, lua_tonumber(L, idxa) / lua_tonumber(L, idxb));
+    } else {
+        if (luaL_getmetafield(L, idxa, STR("__div")) || luaL_getmetafield(L, idxb, STR("__div"))) {
+            lua_pushvalue(L, idxa < 0 && idxa > LUA_REGISTRYINDEX ? idxa - 1 : idxa);
+            lua_pushvalue(L, idxb < 0 && idxb > LUA_REGISTRYINDEX ? idxb - 2 : idxb);
+            lua_call(L, 2, 1);
+        } else {
+            // luaL_error(L, "attempt to perform arithmetic");
+        }
+    }
 }
 
 int hookSetShipSkinCommand(lua_State *L);
@@ -453,7 +504,7 @@ void luaMessageBox(lua_State *L, std::string msg) {
     lua_getglobal(L, STR("pg"));
     lua_getfield(L, -1, STR("MsgboxMgr"));
     lua_getfield(L, -1, STR("GetInstance"));
-    lua_pcall(L, 0,1, 0);
+    lua_pcall(L, 0, 1, 0);
     lua_getfield(L, -1, STR("ShowMsgBox"));
     lua_pushvalue(L, -2);
 
@@ -465,12 +516,12 @@ void luaMessageBox(lua_State *L, std::string msg) {
 
     // helps is of type array of table with key `info` in each table
     lua_pushstring(L, STR("helps"));
-        lua_createtable(L, 1, 0);
-            lua_newtable(L);
-            lua_pushstring(L, STR("info"));
-            lua_pushstring(L, stdstr2ilstr(msg));
-            lua_settable(L, -3);
-        lua_rawseti(L, -2, 1);
+    lua_createtable(L, 1, 0);
+    lua_newtable(L);
+    lua_pushstring(L, STR("info"));
+    lua_pushstring(L, stdstr2ilstr(msg));
+    lua_settable(L, -3);
+    lua_rawseti(L, -2, 1);
     lua_settable(L, -3);
 
     lua_pcall(L, 2, 0, 0);
@@ -491,7 +542,6 @@ void luaToast(lua_State *L, std::string msg) {
     lua_pcall(L, 2, 0, 0);
 }
 
-
 int hookSendMsgExecute(lua_State *L) {
     lua_getfield(L, 2, STR("getBody"));
     lua_pushvalue(L, 2);
@@ -511,23 +561,23 @@ int hookSendMsgExecute(lua_State *L) {
     return 0;
 }
 
-
 void luaHookFunc(lua_State *L, std::string field, lua_CFunction func, std::string backup_prefix) {
     // place name of function to be hooked, in the form x.y.z, in a stringstream
     std::istringstream luaName(field);
-    
+
     std::string luaObj;
     int luaObjCount = 1;
-    
+
     std::getline(luaName, luaObj, '.');
     lua_getglobal(L, il2cpp_string_new(luaObj.data()));
-    
+
     while (std::getline(luaName, luaObj, '.')) {
         lua_getfield(L, -1, il2cpp_string_new(luaObj.data()));
         luaObjCount++;
-        if (!luaName.peek()) break;
+        if (!luaName.peek())
+            break;
     }
-    
+
     lua_setfield(L, -2, il2cpp_string_new((char *)(backup_prefix + luaObj.data()).c_str()));
 
     lua_pushcfunction(L, func);
@@ -535,21 +585,20 @@ void luaHookFunc(lua_State *L, std::string field, lua_CFunction func, std::strin
     lua_pop(L, luaObjCount - 1);
 }
 
-template <typename T> 
-void luaReplaceAttribute(lua_State *L, const char *key, T val) {
+template <typename T> void luaReplaceAttribute(lua_State *L, const char *key, T val) {
     std::vector<std::string> path = split(std::string(key), '.');
 
     lua_getglobal(L, stdstr2ilstr(path.front()));
 
     for (size_t i = 1; i < path.size() - 1; ++i)
         lua_getfield(L, -1, stdstr2ilstr(path[i]));
-    
+
     if constexpr (std::is_same_v<T, int>) {
-        lua_pushnumber(L, (int) val);
-    } else if constexpr (std::is_same_v<T, const char*>) {
-        lua_pushstring(L, il2cpp_string_new((char*) val));
+        lua_pushnumber(L, (int)val);
+    } else if constexpr (std::is_same_v<T, const char *>) {
+        lua_pushstring(L, il2cpp_string_new((char *)val));
     }
-    
+
     lua_setfield(L, -2, stdstr2ilstr(path.back()));
     lua_pop(L, path.size() - 1);
 }
@@ -569,7 +618,7 @@ int hookBMWABSetActive(lua_State *L) {
     lua_pushboolean(L, 0);
     lua_pcall(L, 3, 0, 0);
     lua_pop(L, 3);
-    
+
     return 0;
 }
 
@@ -597,27 +646,37 @@ void modMisc(lua_State *L) {
         luaReplaceAttribute<int>(L, OBFUSCATE("ChapterConst.ShipStepDuration"), 0);
         luaReplaceAttribute<int>(L, OBFUSCATE("ChapterConst.ShipStepQuickPlayScale"), 0);
     }
-    
+
     if (config.Misc.Skins) {
         modSkins(L);
     }
-    
+
     if (config.Misc.ChatCommands) {
         luaReplaceAttribute<const char *>(L, OBFUSCATE("pg.gametip.notice_input_desc.tip"), OBFUSCATE("chat/.command"));
         luaHookFunc(L, OBFUSCATE("SendMsgCommand.execute"), hookSendMsgExecute, OBFUSCATE("old_"));
         luaHookFunc(L, OBFUSCATE("GuildSendMsgCommand.execute"), nilFunc, OBFUSCATE("old_"));
     }
-    
+
+    if (config.Misc.RemoveHardModeStatLimit) {
+        luaHookFunc(L, OBFUSCATE("WorldFleetSelectLayer.CheckValid"), trueFunc, OBFUSCATE("old"));
+        luaHookFunc(L, OBFUSCATE("BossSingleBattleFleetSelectSubPanel.CheckValid"), trueFunc, OBFUSCATE("old"));
+        luaHookFunc(L, OBFUSCATE("Chapter.IsEliteFleetLegal"), trueFunc, OBFUSCATE("old"));
+    }
+
+    if (config.Misc.RemoveNSFWArts) {
+        luaHookFunc(L, OBFUSCATE("CombatLoadUI.init"), CLUInitHook, OBFUSCATE("old"));
+    }
+
     // thanks cmdtaves for the following patches
     if (config.Misc.RemoveBBAnimation) {
         luaHookFunc(L, OBFUSCATE("ys.Battle.BattleManualWeaponAutoBot.SetActive"), hookBMWABSetActive, OBFUSCATE("old"));
     }
-    
+
     if (config.Misc.RemoveMoraleWarning) {
         luaHookFunc(L, OBFUSCATE("Ship.cosumeEnergy"), nilFunc, OBFUSCATE("old_"));
         luaHookFunc(L, OBFUSCATE("Ship.getEnergy"), ship150morale, OBFUSCATE("old_"));
     }
-    
+
     if (isEnabled(config.Misc.AutoRepeatLimit)) {
         luaReplaceAttribute<int>(L, OBFUSCATE("pg.gameset.main_level_multiple_sorties_times.key_value"), config.Misc.AutoRepeatLimit);
         luaReplaceAttribute<int>(L, OBFUSCATE("pg.gameset.hard_level_multiple_sorties_times.key_value"), config.Misc.AutoRepeatLimit);
@@ -631,7 +690,7 @@ void modWeapons(lua_State *L) {
 
     std::vector<int> weapons = getTableIds(L);
 
-    for (int weaponId: weapons) {
+    for (int weaponId : weapons) {
         lua_pushnumber(L, weaponId);
         lua_gettable(L, -2);
 
@@ -656,12 +715,12 @@ int hookSetShipSkinCommand(lua_State *L) {
 
     // assigns skinId to a variable and pops it, leaving the stack intact
     lua_getfield(L, -1, STR("skinId"));
-    int skinId = (int) lua_tonumber(L, -1);
+    int skinId = (int)lua_tonumber(L, -1);
     lua_pop(L, 1);
 
     // assigns shipId to a variable and pops it, leaving the stack intact
     lua_getfield(L, -1, STR("shipId"));
-    int shipId = (int) lua_tonumber(L, -1);
+    int shipId = (int)lua_tonumber(L, -1);
     lua_pop(L, 1);
 
     // calls getProxy(BayProxy), which returns a table with its functions
@@ -688,7 +747,7 @@ int hookSetShipSkinCommand(lua_State *L) {
         lua_pushvalue(L, -2);
         lua_pushstring(L, STR("skin_id"));
         lua_pcall(L, 2, 1, 0);
-        skinId = (int) lua_tonumber(L, -1);
+        skinId = (int)lua_tonumber(L, -1);
         lua_pop(L, 1);
     }
 
@@ -793,7 +852,7 @@ int wrapShipCtor(lua_State *L) {
 
     // get the Ship's id (unique id, not ship's id).
     lua_getfield(L, -1, STR("id"));
-    int shipId = (int) lua_tonumber(L, -1);
+    int shipId = (int)lua_tonumber(L, -1);
     lua_pop(L, 1);
 
     // search the id on skins, if found, replace
@@ -811,13 +870,13 @@ int hookCommitCombat(lua_State *L) {
     // editFleet.
     lua_getfield(L, 1, STR("contextData"));
     lua_getfield(L, -1, STR("editFleet"));
-    int editFleet = (int) lua_tonumber(L, -1);
+    int editFleet = (int)lua_tonumber(L, -1);
     lua_pop(L, 1);
 
     // get normalStageIDs from contextData, which wasn't popped earlier,
     // pass it to int then pop both.
     lua_getfield(L, -1, STR("normalStageIDs"));
-    int normalStageLength = (int) lua_objlen(L, -1);
+    int normalStageLength = (int)lua_objlen(L, -1);
     lua_pop(L, 2);
 
     if (editFleet > normalStageLength) {
@@ -931,7 +990,7 @@ int hookBUAddBuff(lua_State *L) {
     constexpr int FOE_CODE = -1;
 
     lua_getfield(L, 1, STR("_IFF"));
-    const int IFF = static_cast< int >( lua_tonumber(L, -1));
+    const int IFF = static_cast<int>(lua_tonumber(L, -1));
     lua_pop(L, 1);
 
     if (IFF != FOE_CODE) {
@@ -969,6 +1028,7 @@ const char *(*old_lua_tolstring)(lua_State *instance, int index, int &strLen);
 const char *lua_tolstring(lua_State *instance, int index, int &strLen) {
     if (instance && !exec) {
         exec = true;
+        percyLog(OBFUSCATE("injecting"));
 
         lua_State *nL = lua_newthread(instance);
         lua_getglobal(nL, STR("pg"));
@@ -988,17 +1048,27 @@ const char *lua_tolstring(lua_State *instance, int index, int &strLen) {
         lua_setfield(nL, -2, STR("commitTrybat"));
         lua_pop(nL, 1);
 
-        if (config.Spoof.Enabled) { 
-            modSpoof(nL); 
+        if (config.Spoof.Enabled) {
+            modSpoof(nL);
             parseLv(nL, config.Spoof.lv);
         }
-        if (config.Aircraft.Enabled) { modAircraft(nL); }
-        if (config.Enemies.Enabled) { modEnemies(nL); }
-        if (config.Misc.Enabled) { modMisc(nL); }
-        if (config.Weapons.Enabled) { modWeapons(nL); }
-        
+        if (config.Aircraft.Enabled) {
+            modAircraft(nL);
+        }
+        if (config.Enemies.Enabled) {
+            modEnemies(nL);
+        }
+        if (config.Misc.Enabled) {
+            modMisc(nL);
+        }
+        if (config.Weapons.Enabled) {
+            modWeapons(nL);
+        }
+
         lua_pushcfunction(nL, wvHook);
         lua_setglobal(nL, STR("wordVer"));
+
+        percyLog(OBFUSCATE("injected"));
     }
     return old_lua_tolstring(instance, index, strLen);
 }
@@ -1014,8 +1084,7 @@ void *hack_thread(void *) {
     loadil2cppfuncs();
     loadluafuncs();
 
-    hook((void *) GETLUAFUNC("lua_tolstring"), (void *) lua_tolstring,
-         (void **) &old_lua_tolstring);
+    hook((void *)GETLUAFUNC("lua_tolstring"), (void *)lua_tolstring, (void **)&old_lua_tolstring);
 
     return nullptr;
 }
@@ -1026,7 +1095,7 @@ void getConfigPath(JNIEnv *env, jobject context) {
     jobject obj_File = env->CallObjectMethod(context, mid, NULL);
     jclass cls_File = env->FindClass(OBFUSCATE("java/io/File"));
     jmethodID mid_getPath = env->GetMethodID(cls_File, OBFUSCATE("getPath"), OBFUSCATE("()Ljava/lang/String;"));
-    auto obj_Path = (jstring) env->CallObjectMethod(obj_File, mid_getPath);
+    auto obj_Path = (jstring)env->CallObjectMethod(obj_File, mid_getPath);
     const char *path = env->GetStringUTFChars(obj_Path, nullptr);
 
     std::string route(path);
@@ -1036,12 +1105,11 @@ void getConfigPath(JNIEnv *env, jobject context) {
     env->ReleaseStringUTFChars(obj_Path, path);
 }
 
-template <typename T>
-T jsonGetKey(nlohmann::basic_json<nlohmann::ordered_map> obj, std::string name, T _default) {
+template <typename T> T jsonGetKey(nlohmann::basic_json<nlohmann::ordered_map> obj, std::string name, T _default) {
     auto iter = obj.find(name);
     if (iter == obj.end())
         return _default;
-    
+
     if constexpr (std::is_same_v<T, bool>) {
         if (!obj[name].is_boolean())
             return _default;
@@ -1085,7 +1153,7 @@ void init(JNIEnv *env, jclass clazz, jobject context) {
 
     int i = 0;
 
-    for (auto& [key, value] : configJson.items()) {
+    for (auto &[key, value] : configJson.items()) {
         if (i == 0 && !(key == tostr(OBFUSCATE("OriginalRepo")) && value == tostr(OBFUSCATE("github.com/Egoistically/Perseus"))))
             configJson = nullptr;
         if (i == 1 && !(key == tostr(OBFUSCATE("PieRepo")) && value == tostr(OBFUSCATE("github.com/4pii4/PiePerseus"))))
@@ -1132,7 +1200,7 @@ void init(JNIEnv *env, jclass clazz, jobject context) {
                 config.Weapons.Enabled = jsonGetKey<bool>(value, OBFUSCATE("Enabled"), false);
                 config.Weapons.Damage = jsonGetKey<int>(value, OBFUSCATE("Damage"), -1);
                 config.Weapons.ReloadMax = jsonGetKey<int>(value, OBFUSCATE("ReloadMax"), -1);
-            } else if (key == tostr(OBFUSCATE("Spoof"))) { 
+            } else if (key == tostr(OBFUSCATE("Spoof"))) {
                 config.Spoof.Enabled = jsonGetKey<bool>(value, OBFUSCATE("Enabled"), false);
                 config.Spoof.name = jsonGetKey<std::string>(value, OBFUSCATE("Name"), stdstr(""));
                 config.Spoof.id = jsonGetKey<std::string>(value, OBFUSCATE("Id"), stdstr(""));
@@ -1146,6 +1214,8 @@ void init(JNIEnv *env, jclass clazz, jobject context) {
                 config.Misc.ChatCommands = jsonGetKey<bool>(value, OBFUSCATE("ChatCommands"), false);
                 config.Misc.RemoveBBAnimation = jsonGetKey<bool>(value, OBFUSCATE("RemoveBBAnimation"), false);
                 config.Misc.RemoveMoraleWarning = jsonGetKey<bool>(value, OBFUSCATE("RemoveMoraleWarning"), false);
+                config.Misc.RemoveHardModeStatLimit = jsonGetKey<bool>(value, OBFUSCATE("RemoveHardModeStatLimit"), false);
+                config.Misc.RemoveNSFWArts = jsonGetKey<bool>(value, OBFUSCATE("RemoveNSFWArts"), false);
             }
         }
         i++;
@@ -1163,13 +1233,8 @@ void init(JNIEnv *env, jclass clazz, jobject context) {
 }
 
 int RegisterMain(JNIEnv *env) {
-    percyLog(OBFUSCATE("injecting"));
     JNINativeMethod methods[] = {
-            {
-                    OBFUSCATE("init"),
-                    OBFUSCATE("(Landroid/content/Context;)V"),
-                    reinterpret_cast<void *>(init)
-            },
+        {OBFUSCATE("init"), OBFUSCATE("(Landroid/content/Context;)V"), reinterpret_cast<void *>(init)},
     };
     jclass clazz = env->FindClass(OBFUSCATE("com/unity3d/player/UnityPlayerActivity"));
     if (!clazz)
@@ -1177,14 +1242,12 @@ int RegisterMain(JNIEnv *env) {
     if (env->RegisterNatives(clazz, methods, sizeof(methods) / sizeof(methods[0])) != 0)
         return JNI_ERR;
 
-    percyLog(OBFUSCATE("injected"));
     return JNI_OK;
 }
 
-extern "C"
-JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved) {
+extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved) {
     JNIEnv *env;
-    vm->GetEnv((void **) &env, JNI_VERSION_1_6);
+    vm->GetEnv((void **)&env, JNI_VERSION_1_6);
 
     if (RegisterMain(env) != 0)
         return JNI_ERR;

@@ -132,6 +132,8 @@ struct Config {
         bool ChatCommands = false;
         bool RemoveBBAnimation = false;
         bool RemoveMoraleWarning = false;
+        bool RemoveHardModeStatLimit = false;
+        bool RemoveNSFWArts = false;
     };
 
     struct WWeapons {
@@ -230,7 +232,9 @@ auto _default_raw = OBFUSCATE( R"r({
         "AutoRepeatLimit": -1,
         "ChatCommands":  false,
         "RemoveBBAnimation": false,
-        "RemoveMoraleWarning": false
+        "RemoveMoraleWarning": false,
+        "RemoveHardModeStatLimit": false,
+        "RemoveNSFWArts": false
     }
 }
 )r");
