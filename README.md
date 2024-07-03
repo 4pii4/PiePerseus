@@ -1,8 +1,28 @@
-
-
 # PiePerseus
 
 "Development environment" to test your Perseus modifications in under one minute.
+
+## Features and goals:
+- [x] No chat/name censorship
+- [x] Config file in `json` (instead of archaic `.ini`)
+- [x] Chat commands
+- [x] Remove low morale warning
+- [x] Higher auto repeat limit
+- [ ] Skip animations
+  - [x] Skip battleship firing animation
+- [ ] Hide ~~potentially~~ NSFW images/screens
+  - [x] Hide loading background images
+- [x] Remove hard mode stat/formation requirements
+- [ ] Commander name/id/oil/coin/gem spoof
+  - [x] Commander name/id/level spoof
+- [x] Convert any ship blueprint to protocore ([unimplemented feedback](https://discord.com/channels/456397991847395339/468804193646542849/1241706652261159022))
+
+I do read AL's feedback channel, so if you have an interesting suggestion you can DM `pi.kt` on discord.
+
+## Documentation
+
+* [Chat commands](docs/chat_commands.md)
+* [Configuration](docs/configuration.md)
 
 ## Requirements:
 * Python with f-string support
@@ -30,24 +50,6 @@ The first build takes 3 to 5 minutes, subsequent builds take 15-20 seconds.
 
 If the built APK doesn't work for you and you're on Windows, try running the script inside Git Bash/MSYS.
 
-## Features and goals:
-- [x] No chat/name censorship
-- [x] Config file in `json` (instead of archaic `.ini`)
-- [x] Chat commands, **disabled by default**
-- [x] Remove low morale warning
-- [x] Higher auto repeat limit
-- [ ] Skip animations
-  - [x] Skip battleship firing animation
-- [ ] Hide ~~potentially~~ NSFW images/screens
-  - [x] Hide loading background images
-- [x] Remove hard mode stat/formation requirements
-- [ ] Commander name/id/oil/coin/gem spoof
-  - [x] Commander name/id/level spoof
-
-## Documentation
-
-* [Chat commands](docs/chat_commands.md)
-* [Configuration](docs/configuration.md)
 
 To quote the original creator of Perseus:
 

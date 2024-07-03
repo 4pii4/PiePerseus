@@ -21,6 +21,7 @@
 #include "Includes/json.hpp"
 #include "Structs.h"
 #include "hooks/combatloadui.hpp"
+#include "hooks/fragresolvepanel.hpp"
 #include "modules/command.hpp"
 #include "modules/spoof.hpp"
 
@@ -212,6 +213,8 @@ void loadluafuncs() {
     lua_settable = (void (*)(lua_State *, int))GETLUAFUNC("lua_settable");
     lua_rawseti = (void (*)(lua_State *, int, int))GETLUAFUNC("lua_rawseti");
     lua_rawgeti = (void (*)(lua_State *, int, int))GETLUAFUNC("lua_rawgeti");
+    lua_rawset = (void (*)(lua_State *, int))GETLUAFUNC("lua_rawset");
+    lua_rawget = (void (*)(lua_State *, int))GETLUAFUNC("lua_rawget");
     lua_setupvalue = (const char *(*)(lua_State *, int, int))GETLUAFUNC("lua_setupvalue");
     lua_equal = (int (*)(lua_State *, int, int))GETLUAFUNC("lua_equal");
     lua_toboolean = (int (*)(lua_State *, int))GETLUAFUNC("lua_toboolean");
@@ -219,6 +222,7 @@ void loadluafuncs() {
     lua_replace = (void (*)(lua_State *, int))GETLUAFUNC("lua_replace");
     lua_concat = (void (*)(lua_State *, int))GETLUAFUNC("lua_concat");
     lua_isnumber = (int (*)(lua_State *, int))GETLUAFUNC("lua_isnumber");
+    lua_checkstack = (int (*)(lua_State *, int))GETLUAFUNC("lua_checkstack");
 
     luaL_getmetafield = (int (*)(lua_State *, int, Il2CppString *))GETLUAFUNC("luaL_getmetafield");
 }
@@ -406,6 +410,19 @@ int nilFunc(lua_State *L) { return 0; }
 int trueFunc(lua_State *L) {
     lua_pushboolean(L, true);
     return 1;
+}
+
+void lc_add(lua_State *L, int idxa, int idxb) {
+    if (lua_isnumber(L, idxa) && lua_isnumber(L, idxb)) {
+        lua_pushnumber(L, lua_tonumber(L, idxa) + lua_tonumber(L, idxb));
+    } else {
+        if (luaL_getmetafield(L, idxa, STR("__add")) || luaL_getmetafield(L, idxb, STR("__add"))) {
+            lua_pushvalue(L, idxa < 0 && idxa > LUA_REGISTRYINDEX ? idxa - 1 : idxa);
+            lua_pushvalue(L, idxb < 0 && idxb > LUA_REGISTRYINDEX ? idxb - 2 : idxb);
+            lua_call(L, 2, 1);
+        } else {
+        }
+    }
 }
 
 void lc_sub(lua_State *L, int idxa, int idxb) {
@@ -628,7 +645,24 @@ int ship150morale(lua_State *L) {
     return 1;
 }
 
+// str, options
+int wvHook(lua_State *L) {
+    int nstack = lua_gettop(L);
+    if (nstack == 1) {
+        lua_pushnumber(L, 0);
+        return 1;
+    } else {
+        lua_pushnumber(L, 0);
+        lua_pushvalue(L, 1);
+        return 2;
+    }
+}
+
+
 void modMisc(lua_State *L) {
+    lua_pushcfunction(L, wvHook);
+    lua_setglobal(L, STR("wordVer"));
+    
     if (config.Misc.ExerciseGodmode) {
         lua_getfield(L, -1, STR("ConvertedBuff"));
         lua_getfield(L, -1, STR("buff_19"));
@@ -665,6 +699,10 @@ void modMisc(lua_State *L) {
 
     if (config.Misc.RemoveNSFWArts) {
         luaHookFunc(L, OBFUSCATE("CombatLoadUI.init"), CLUInitHook, OBFUSCATE("old"));
+    }
+
+    if (config.Misc.AllBlueprintsConvertible) {
+        luaHookFunc(L, OBFUSCATE("FragResolvePanel.GetAllBluePrintStrengthenItems"), FRPGetAllBlueprintItemsHook, OBFUSCATE("old"));
     }
 
     // thanks cmdtaves for the following patches
@@ -1010,19 +1048,6 @@ int hookBUAddBuff(lua_State *L) {
     return 0;
 }
 
-// str, options
-int wvHook(lua_State *L) {
-    int nstack = lua_gettop(L);
-    if (nstack == 1) {
-        lua_pushnumber(L, 0);
-        return 1;
-    } else {
-        lua_pushnumber(L, 0);
-        lua_pushvalue(L, 1);
-        return 2;
-    }
-}
-
 const char *(*old_lua_tolstring)(lua_State *instance, int index, int &strLen);
 
 const char *lua_tolstring(lua_State *instance, int index, int &strLen) {
@@ -1048,10 +1073,9 @@ const char *lua_tolstring(lua_State *instance, int index, int &strLen) {
         lua_setfield(nL, -2, STR("commitTrybat"));
         lua_pop(nL, 1);
 
-        if (config.Spoof.Enabled) {
-            modSpoof(nL);
-            parseLv(nL, config.Spoof.lv);
-        }
+        modSpoof(nL);
+        parseLv(nL, config.Spoof.lv);
+
         if (config.Aircraft.Enabled) {
             modAircraft(nL);
         }
@@ -1064,9 +1088,6 @@ const char *lua_tolstring(lua_State *instance, int index, int &strLen) {
         if (config.Weapons.Enabled) {
             modWeapons(nL);
         }
-
-        lua_pushcfunction(nL, wvHook);
-        lua_setglobal(nL, STR("wordVer"));
 
         percyLog(OBFUSCATE("injected"));
     }
@@ -1216,6 +1237,7 @@ void init(JNIEnv *env, jclass clazz, jobject context) {
                 config.Misc.RemoveMoraleWarning = jsonGetKey<bool>(value, OBFUSCATE("RemoveMoraleWarning"), false);
                 config.Misc.RemoveHardModeStatLimit = jsonGetKey<bool>(value, OBFUSCATE("RemoveHardModeStatLimit"), false);
                 config.Misc.RemoveNSFWArts = jsonGetKey<bool>(value, OBFUSCATE("RemoveNSFWArts"), false);
+                config.Misc.AllBlueprintsConvertible = jsonGetKey<bool>(value, OBFUSCATE("AllBlueprintsConvertible"), false);
             }
         }
         i++;

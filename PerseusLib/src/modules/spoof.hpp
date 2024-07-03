@@ -628,6 +628,64 @@ int wrapNDRSPUpdatePlayer(lua_State *L) {
     return 0;
 }
 
+std::string getRealName(lua_State *L) {
+    lua_getfield(L, LUA_GLOBALSINDEX, STR("getProxy"));
+    lua_getfield(L, LUA_GLOBALSINDEX, STR("PlayerProxy"));
+    lua_call(L, 1, 1);
+    lua_pushstring(L, STR("getRawData"));
+    lua_gettable(L, -2);
+    lua_insert(L, -2);
+    lua_call(L, 1, 1);
+    lua_pushstring(L, STR("GetName"));
+    lua_gettable(L, -2);
+    lua_insert(L, -2);
+    lua_call(L, 1, 1);
+    int siz;
+    std::string name = lua_tolstring(L, -1, siz);
+    lua_pop(L, 1);
+    return name;
+}
+
+
+int wrapRCupdate(lua_State *L) {
+    bool needNameSpoof = !config.Spoof.name.empty();
+    bool needLevelSpoof = (config.Spoof.lv > 0);
+    
+    int type;
+    int siz;
+    std::string name;
+    
+    lua_getglobal(L, STR("RankCard"));
+    lua_getfield(L, -1, STR("oldupdate"));
+    lua_remove(L, -2);
+
+    lua_pushvalue(L, 1);
+    lua_getfield(L, -1, STR("_type"));
+    type = (int) lua_tonumber(L, -1);
+    lua_pop(L, 1);
+
+    lua_pushvalue(L, 2);
+    lua_getfield(L, -1, STR("name"));
+    name = lua_tolstring(L, -1, siz);
+    lua_pop(L, 1);
+    
+    percyLog(OBFUSCATE("name: %s, type: %d"), name.data(), type);
+    if (type == 1 || name == getRealName(L)) {
+        if (needNameSpoof) {
+            lua_pushstring(L, stdstr2ilstr(config.Spoof.name));
+            lua_setfield(L, -2, STR("name"));
+        }
+        if (needLevelSpoof) {
+            lua_pushstring(L, stdstr2ilstr(std::to_string(config.Spoof.lvInt)));
+            lua_setfield(L, -2, STR("lv"));
+        }
+    }
+
+    lua_pushvalue(L, 3);
+    lua_pcall(L, 3, 0, 0);
+    return 0;
+}
+
 void modSpoof(lua_State *L) {
     luaHookFunc(L, OBFUSCATE("PlayerVitaeDetailPage.UpdateInfo"), wrapPVDPUpdateInfo, OBFUSCATE("old"));
     luaHookFunc(L, OBFUSCATE("MainPlayerInfoBtn.UpdateLevelAndName"), wrapMPIBUpdateLevelAndName, OBFUSCATE("old"));
@@ -638,4 +696,5 @@ void modSpoof(lua_State *L) {
     luaHookFunc(L, OBFUSCATE("NewBattleResultStatisticsPage.UpdatePlayer"), wrapNBRSPUpdatePlayer, OBFUSCATE("old"));
     luaHookFunc(L, OBFUSCATE("NewDuelResultStatisticsPage.UpdatePlayer"), wrapNDRSPUpdatePlayer, OBFUSCATE("old"));
     luaHookFunc(L, OBFUSCATE("BattleResultLayer.setPlayer"), wrapBRLSetPlayer, OBFUSCATE("old"));
+    luaHookFunc(L, OBFUSCATE("RankCard.update"), wrapRCupdate, OBFUSCATE("old"));
 }

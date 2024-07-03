@@ -134,6 +134,7 @@ struct Config {
         bool RemoveMoraleWarning = false;
         bool RemoveHardModeStatLimit = false;
         bool RemoveNSFWArts = false;
+        bool AllBlueprintsConvertible = false;
     };
 
     struct WWeapons {
@@ -234,7 +235,8 @@ auto _default_raw = OBFUSCATE( R"r({
         "RemoveBBAnimation": false,
         "RemoveMoraleWarning": false,
         "RemoveHardModeStatLimit": false,
-        "RemoveNSFWArts": false
+        "RemoveNSFWArts": false,
+        "AllBlueprintsConvertible": false
     }
 }
 )r");

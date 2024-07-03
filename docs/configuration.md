@@ -70,7 +70,8 @@ Note: values that don't exist will be treated as disabled.
         "RemoveBBAnimation": false,
         "RemoveMoraleWarning": false,
         "RemoveHardModeStatLimit": false,
-        "RemoveNSFWArts": false
+        "RemoveNSFWArts": false,
+        "AllBlueprintsConvertible": false
     }
 }
 ```

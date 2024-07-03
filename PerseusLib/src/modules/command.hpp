@@ -126,8 +126,7 @@ void parseLv(lua_State *L, double input) {
 
     percyLog(OBFUSCATE("input is %lf"), levelInput);
     percyLog(OBFUSCATE("parsed into level %lf %d:%lf"), config.Spoof.lv, config.Spoof.lvInt, config.Spoof.lvFrac);
-    percyLog(OBFUSCATE("%d xp out of"), config.Spoof.spoofXp);
-    percyLog(OBFUSCATE("%d in level"), config.Spoof.lvMax);
+    percyLog(OBFUSCATE("%d/%d xp out of"), config.Spoof.spoofXp, config.Spoof.lvMax);
     percyLog(OBFUSCATE("%d max coins"), config.Spoof.maxCoins);
     percyLog(OBFUSCATE("%d max oil"), config.Spoof.maxOil);
 }
