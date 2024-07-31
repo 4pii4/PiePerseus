@@ -1,5 +1,7 @@
 # PiePerseus
 
+I won't maintain this anymore as my AL accounts (`4pii4` and `pie guild alt` on Little Enterprise have been banned permanently)
+
 "Development environment" to test your Perseus modifications in under one minute.
 
 ## Features and goals:
